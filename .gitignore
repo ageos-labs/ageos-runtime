@@ -9,7 +9,7 @@ htmlcov/
 *.egg-info/
 build/
 dist/
-c/build/
-c/.cache/
+libageos/build/
+libageos/.cache/
 .ageos/
 examples/openclaw/openclaw/

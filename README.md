@@ -15,13 +15,13 @@
 Linux:
 
 ```bash
-curl -fsSL https://github.com/ageos-labs/ageos-runtime/releases/latest/download/install.sh | bash
+curl -fsSL https://ageos.dev/install.sh | bash
 ```
 
 Windows PowerShell, through WSL:
 
 ```powershell
-irm https://github.com/ageos-labs/ageos-runtime/releases/latest/download/install.ps1 | iex
+irm https://ageos.dev/install.ps1 | iex
 ```
 
 The installer downloads the latest GitHub Release artifact, installs local runtime dependencies, builds AgeOS, and links `ageos` into `/usr/local/bin`.
@@ -107,6 +107,8 @@ Push a `v*` tag. The release workflow runs unit tests, runs local-inference inte
 
 - `install.sh`
 - `install.ps1`
+- `AgeOS-<version>-x64.deb`
+- `AgeOS-<version>-x64.exe`
 - `ageos-source.tar.gz`
 - `container-image.txt`
 - `SHA256SUMS`
@@ -117,7 +119,14 @@ It writes `.github/releases/<tag>.md` from commits since the previous release, a
 Install a specific tag:
 
 ```bash
-curl -fsSL https://github.com/ageos-labs/ageos-runtime/releases/latest/download/install.sh | AGEOS_VERSION=v0.1.0 bash
+curl -fsSL https://ageos.dev/download/linux/v0.1.0/install.sh | AGEOS_VERSION=v0.1.0 bash
+```
+
+Download a specific Debian package:
+
+```bash
+curl -LO https://ageos.dev/download/linux/v0.1.0/AgeOS-0.1.0-x64.deb
+sudo apt install ./AgeOS-0.1.0-x64.deb
 ```
 
 Use the matching runtime image:
@@ -126,25 +135,29 @@ Use the matching runtime image:
 docker pull ghcr.io/ageos-labs/ageos-runtime:v0.1.0
 ```
 
-## Docker CI
+## Test Before Push
 
-CI builds Docker targets from `docker/Dockerfile` with GitHub Actions layer caching:
+Run the same Docker test targets that CI uses before pushing:
 
 ```bash
 docker build -f docker/Dockerfile --target unit-test -t ageos-runtime:unit .
 docker run --rm --privileged --security-opt seccomp=unconfined ageos-runtime:unit
 ```
 
-Integration tests need Linux sandbox permissions and mounted caches:
+Integration tests also need persistent caches for the model and OpenClaw dependencies. Use Docker named volumes instead of `$PWD` bind mounts, which can fail on remote/NFS workspaces:
 
 ```bash
-mkdir -p .ageos-cache .pnpm-store
+docker volume create ageos-cache-local
+docker volume create ageos-openclaw-local
+
 docker build -f docker/Dockerfile --target integration-test -t ageos-runtime:integration .
 docker run --rm --privileged --security-opt seccomp=unconfined \
-  -v "$PWD/.ageos-cache:/cache/ageos" \
-  -v "$PWD/.pnpm-store:/cache/pnpm-store" \
+  -v ageos-cache-local:/cache/ageos \
+  -v ageos-openclaw-local:/cache/openclaw \
   ageos-runtime:integration
 ```
+
+Expected pytest output includes deselected tests because each command runs one test group: unit tests exclude integration tests, and integration tests exclude unit tests.
 
 ## License
 

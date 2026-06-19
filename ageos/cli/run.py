@@ -270,7 +270,7 @@ def _ageos_source_tree_for(root: Path) -> Path | None:
         if (
             (candidate / "pyproject.toml").exists()
             and (candidate / "ageos" / "cli" / "run.py").exists()
-            and (candidate / "c" / "sandbox.c").exists()
+            and (candidate / "libageos" / "sandbox.c").exists()
         ):
             return candidate
     return None

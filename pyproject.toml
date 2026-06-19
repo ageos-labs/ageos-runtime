@@ -42,20 +42,20 @@ include = ["ageos*"]
 ageos = ["config/*.yaml"]
 
 [tool.setuptools.data-files]
-"share/ageos/c" = [
-  "c/ageos_sandbox_main.c",
-  "c/hw_detect.c",
-  "c/landlock.c",
-  "c/limits.c",
-  "c/meson.build",
-  "c/scheduler.c",
-  "c/sandbox.c",
+"share/ageos/libageos" = [
+  "libageos/ageos_sandbox_main.c",
+  "libageos/hw_detect.c",
+  "libageos/landlock.c",
+  "libageos/limits.c",
+  "libageos/meson.build",
+  "libageos/scheduler.c",
+  "libageos/sandbox.c",
 ]
-"share/ageos/c/include/ageos" = [
-  "c/include/ageos/hw.h",
-  "c/include/ageos/limits.h",
-  "c/include/ageos/scheduler.h",
-  "c/include/ageos/sandbox.h",
+"share/ageos/libageos/include/ageos" = [
+  "libageos/include/ageos/hw.h",
+  "libageos/include/ageos/limits.h",
+  "libageos/include/ageos/scheduler.h",
+  "libageos/include/ageos/sandbox.h",
 ]
 "share/ageos/scripts" = [
   "scripts/build.sh",

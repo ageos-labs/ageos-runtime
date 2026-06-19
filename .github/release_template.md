@@ -28,14 +28,36 @@ One-sentence summary of the release and why users should care.
 
 ## 🚀 Installation
 
-Linux:
+Latest release asset base:
+```text
+https://github.com/ageos-labs/ageos-runtime/releases/latest/download
+```
+
+Specific release asset base:
+```text
+https://github.com/ageos-labs/ageos-runtime/releases/download/vX.Y.Z
+```
+
+Linux curl installer:
 ```bash
 curl -fsSL https://github.com/ageos-labs/ageos-runtime/releases/latest/download/install.sh | bash
 ```
 
-Windows:
+Linux Debian package:
+```bash
+curl -LO https://github.com/ageos-labs/ageos-runtime/releases/latest/download/AgeOS-X.Y.Z-x64.deb
+sudo apt install ./AgeOS-X.Y.Z-x64.deb
+```
+
+Windows PowerShell installer:
 ```powershell
 irm https://github.com/ageos-labs/ageos-runtime/releases/latest/download/install.ps1 | iex
+```
+
+Windows `.exe` bootstrapper:
+```powershell
+irm https://github.com/ageos-labs/ageos-runtime/releases/latest/download/AgeOS-X.Y.Z-x64.exe -OutFile AgeOS-X.Y.Z-x64.exe
+.\AgeOS-X.Y.Z-x64.exe
 ```
 
 ## 🔗 Links

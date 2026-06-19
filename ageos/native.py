@@ -47,7 +47,7 @@ AGEOS_AGENT_UID_END = 64000
 def _load_libageos() -> ctypes.CDLL:
     candidates = [
         Path(__file__).resolve().parent / "libageos.so",
-        Path(__file__).resolve().parent.parent / "c" / "build" / "libageos.so",
+        Path(__file__).resolve().parent.parent / "libageos" / "build" / "libageos.so",
         Path("/usr/lib/libageos.so"),
         Path("/usr/lib/x86_64-linux-gnu/libageos.so"),
         Path("/usr/local/lib/libageos.so"),

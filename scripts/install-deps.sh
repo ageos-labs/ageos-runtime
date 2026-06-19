@@ -37,9 +37,9 @@ if ! command -v llama-server >/dev/null 2>&1; then
 else
   echo "llama-server already available at $(command -v llama-server)"
 fi
-if compgen -G "$LLAMA_CPP_BUILD/bin/lib*.so*" >/dev/null; then
+if [[ -d "$LLAMA_CPP_BUILD" ]]; then
   sudo mkdir -p "$LLAMA_LIB_DIR"
-  sudo cp -a --remove-destination "$LLAMA_CPP_BUILD"/bin/lib*.so* "$LLAMA_LIB_DIR"/
+  find "$LLAMA_CPP_BUILD" -name 'lib*.so*' -exec sudo cp -a --remove-destination {} "$LLAMA_LIB_DIR"/ \;
   sudo ldconfig
 fi
 

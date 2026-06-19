@@ -39,7 +39,8 @@ jobs:
       AGEOS_MAX_OUTPUT_TOKENS: "32"
       NO_PROXY: 127.0.0.1,localhost
       PNPM_HOME: /opt/pnpm
-      PNPM_STORE_DIR: /cache/pnpm-store
+      OPENCLAW_CACHE_DIR: /cache/openclaw
+      PNPM_STORE_DIR: /cache/openclaw/pnpm-store
     steps:
       - uses: actions/checkout@v4
 
@@ -91,9 +92,10 @@ jobs:
             -e AGEOS_MAX_OUTPUT_TOKENS \
             -e NO_PROXY \
             -e PNPM_HOME \
+            -e OPENCLAW_CACHE_DIR \
             -e PNPM_STORE_DIR \
             -v "${{ github.workspace }}/.ageos-cache:/cache/ageos" \
-            -v "${{ github.workspace }}/.pnpm-store:/cache/pnpm-store" \
+            -v "${{ github.workspace }}/.pnpm-store:/cache/openclaw" \
             ageos-runtime:integration-${{ github.sha }}
           status=$?
 

@@ -142,8 +142,9 @@ def test_openclaw_onboard_configures_local_inference(integration_env: dict[str, 
     configs = sorted(set(state_root.glob("agents/*/home/.openclaw/openclaw.json")) - existing_configs)
     assert configs, f"OpenClaw config was not created under {state_root}"
     config = json.loads(configs[-1].read_text(encoding="utf-8"))
-    providers = config.get("models", {}).get("providers", {})
-    assert providers.get("ageos-ci", {}).get("baseUrl") == "http://127.0.0.1:8000/v1"
-    assert providers.get("ageos-ci", {}).get("apiKey") == "ageos-local"
-    models = providers.get("ageos-ci", {}).get("models", [])
-    assert any(model.get("id") == "default-instruct" for model in models)
+    gateway = config.get("gateway", {})
+    wizard = config.get("wizard", {})
+    assert gateway.get("mode") == "local"
+    assert gateway.get("auth", {}).get("mode") == "token"
+    assert wizard.get("lastRunCommand") == "onboard"
+    assert wizard.get("lastRunMode") == "local"

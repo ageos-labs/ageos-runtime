@@ -46,9 +46,7 @@ RUN --mount=type=cache,target=/root/.cache/ccache \
     cmake --build /tmp/ageos-llama.cpp/build --target llama-server --parallel "$(nproc)" && \
     install -m 0755 /tmp/ageos-llama.cpp/build/bin/llama-server /usr/local/bin/llama-server && \
     mkdir -p /usr/local/lib/x86_64-linux-gnu && \
-    if compgen -G "/tmp/ageos-llama.cpp/build/bin/lib*.so*" >/dev/null; then \
-      cp -a --remove-destination /tmp/ageos-llama.cpp/build/bin/lib*.so* /usr/local/lib/x86_64-linux-gnu/; \
-    fi && \
+    find /tmp/ageos-llama.cpp/build -name 'lib*.so*' -exec cp -a --remove-destination {} /usr/local/lib/x86_64-linux-gnu/ \; && \
     ldconfig && \
     rm -rf /tmp/ageos-llama.cpp
 
@@ -60,9 +58,9 @@ FROM source AS unit-test
 
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install ".[dev]" && \
-    rm -rf c/build && \
-    meson setup c/build c --prefix=/usr/local && \
-    meson compile -C c/build
+    rm -rf libageos/build && \
+    meson setup libageos/build libageos --prefix=/usr/local && \
+    meson compile -C libageos/build
 
 CMD ["scripts/ci/run-unit-tests.sh"]
 
@@ -98,6 +96,8 @@ ENV AGEOS_RUN_INTEGRATION=1 \
     AGEOS_MODELS_CONFIG=/cache/ageos/ci-models.yaml \
     AGEOS_LLAMA_CTX_SIZE=512 \
     AGEOS_MAX_OUTPUT_TOKENS=32 \
-    NO_PROXY=127.0.0.1,localhost
+    NO_PROXY=127.0.0.1,localhost \
+    OPENCLAW_CACHE_DIR=/cache/openclaw \
+    PNPM_STORE_DIR=/cache/openclaw/pnpm-store
 
 CMD ["scripts/ci/run-integration-tests.sh"]
