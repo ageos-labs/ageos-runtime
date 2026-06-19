@@ -39,7 +39,12 @@ if ! command -v meson >/dev/null 2>&1; then
 fi
 
 echo "Building native AgeOS core..."
-meson setup "$BUILD_DIR" "$C_SOURCE_DIR" --wipe --prefix=/usr/local
+if [[ -f "$BUILD_DIR/meson-private/coredata.dat" ]]; then
+  meson setup "$BUILD_DIR" "$C_SOURCE_DIR" --wipe --prefix=/usr/local
+else
+  rm -rf "$BUILD_DIR"
+  meson setup "$BUILD_DIR" "$C_SOURCE_DIR" --prefix=/usr/local
+fi
 meson compile -C "$BUILD_DIR"
 NATIVE_STAGE="$(mktemp -d)"
 meson install -C "$BUILD_DIR" --no-rebuild --destdir "$NATIVE_STAGE"

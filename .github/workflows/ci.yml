@@ -10,17 +10,22 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build unit test image
+        uses: docker/build-push-action@v6
         with:
-          python-version: "3.11"
-      - name: Install system deps
-        run: sudo apt-get update && sudo apt-get install -y meson ninja-build libseccomp-dev
-      - name: Install package
-        run: python -m pip install -e ".[dev]"
-      - name: Build C core
-        run: meson setup c/build c && meson compile -C c/build
+          context: .
+          file: docker/Dockerfile
+          target: unit-test
+          load: true
+          tags: ageos-runtime:unit-${{ github.sha }}
+          cache-from: type=gha,scope=unit-test
+          cache-to: type=gha,mode=max,scope=unit-test
+
       - name: Run unit tests
-        run: pytest -m "not integration"
+        run: docker run --rm --privileged --security-opt seccomp=unconfined ageos-runtime:unit-${{ github.sha }}
 
   integration-tests:
     runs-on: ubuntu-22.04
@@ -28,70 +33,76 @@ jobs:
     timeout-minutes: 60
     env:
       AGEOS_RUN_INTEGRATION: "1"
-      AGEOS_CACHE: ${{ github.workspace }}/.ageos-cache
-      AGEOS_MODELS_CONFIG: ${{ github.workspace }}/.ageos-cache/ci-models.yaml
+      AGEOS_CACHE: /cache/ageos
+      AGEOS_MODELS_CONFIG: /cache/ageos/ci-models.yaml
       AGEOS_LLAMA_CTX_SIZE: "512"
       AGEOS_MAX_OUTPUT_TOKENS: "32"
       NO_PROXY: 127.0.0.1,localhost
-      PNPM_HOME: ${{ github.workspace }}/.pnpm
+      PNPM_HOME: /opt/pnpm
+      PNPM_STORE_DIR: /cache/pnpm-store
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Restore model cache
+        uses: actions/cache@v4
         with:
-          python-version: "3.11"
-      - uses: actions/setup-node@v4
+          path: .ageos-cache
+          key: ageos-models-${{ runner.os }}-${{ hashFiles('scripts/ci/write-ci-model-config.sh') }}
+          restore-keys: |
+            ageos-models-${{ runner.os }}-
+
+      - name: Restore pnpm cache
+        uses: actions/cache@v4
         with:
-          node-version: "22.19.0"
-      - name: Enable pnpm
+          path: .pnpm-store
+          key: pnpm-openclaw-${{ runner.os }}-${{ hashFiles('scripts/ci/prepare-openclaw.sh') }}
+          restore-keys: |
+            pnpm-openclaw-${{ runner.os }}-
+
+      - name: Prepare cache and artifact directories
         run: |
-          corepack enable
-          corepack prepare pnpm@11.2.2 --activate
-          echo "$PNPM_HOME" >> "$GITHUB_PATH"
-      - name: Install runtime dependencies
-        run: ./scripts/install-deps.sh
-      - name: Build and install AgeOS
-        run: ./scripts/build.sh
-      - name: Configure tiny CI model
-        run: |
-          mkdir -p "$(dirname "$AGEOS_MODELS_CONFIG")"
-          cat > "$AGEOS_MODELS_CONFIG" <<'YAML'
-          models:
-            - name: ci-tiny-instruct
-              flavor: llama
-              capability: instruct
-              tier: tiny
-              backend: llama
-              repo_id: tensorblock/TinyLlama-1.1B-Chat-v1.0-GGUF
-              filename: TinyLlama-1.1B-Chat-v1.0-Q2_K.gguf
-              ram_gb: 3
-              vram_gb: 0
-              context_tokens: 512
-          specialties:
-            default-instruct:
-              capability: instruct
-              model: ci-tiny-instruct
-          scheduler:
-            ram_limit_gb: 4
-            vram_limit_gb: 0
-          inference:
-            host: 127.0.0.1
-            port: 8000
-            default_specialty: default-instruct
-          YAML
-      - name: Prepare OpenClaw example
-        run: |
-          pnpm runtime set node 22.19.0 -g
-          echo "$PNPM_HOME/bin" >> "$GITHUB_PATH"
-          echo "$PNPM_HOME" >> "$GITHUB_PATH"
-          mkdir -p examples/openclaw
-          cd examples/openclaw
-          if [ ! -d openclaw ]; then
-            git clone https://github.com/openclaw/openclaw.git --depth 1
-          fi
-          cd openclaw
-          pnpm install --frozen-lockfile
+          mkdir -p .ageos-cache .pnpm-store .ci-artifacts
+
+      - name: Build integration test image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          target: integration-test
+          load: true
+          tags: ageos-runtime:integration-${{ github.sha }}
+          cache-from: type=gha,scope=integration-test
+          cache-to: type=gha,mode=max,scope=integration-test
+
       - name: Run integration tests
-        run: pytest -m integration
+        run: |
+          set +e
+          docker rm -f ageos-integration >/dev/null 2>&1 || true
+          docker run \
+            --name ageos-integration \
+            --privileged \
+            --security-opt seccomp=unconfined \
+            -e AGEOS_RUN_INTEGRATION \
+            -e AGEOS_CACHE \
+            -e AGEOS_MODELS_CONFIG \
+            -e AGEOS_LLAMA_CTX_SIZE \
+            -e AGEOS_MAX_OUTPUT_TOKENS \
+            -e NO_PROXY \
+            -e PNPM_HOME \
+            -e PNPM_STORE_DIR \
+            -v "${{ github.workspace }}/.ageos-cache:/cache/ageos" \
+            -v "${{ github.workspace }}/.pnpm-store:/cache/pnpm-store" \
+            ageos-runtime:integration-${{ github.sha }}
+          status=$?
+
+          mkdir -p .ci-artifacts
+          docker cp ageos-integration:/tmp .ci-artifacts/tmp >/dev/null 2>&1 || true
+          docker cp ageos-integration:/src/examples .ci-artifacts/examples >/dev/null 2>&1 || true
+          docker rm -f ageos-integration >/dev/null 2>&1 || true
+          exit "$status"
+
       - name: Upload integration logs
         if: failure()
         uses: actions/upload-artifact@v4
@@ -100,7 +111,7 @@ jobs:
           if-no-files-found: ignore
           include-hidden-files: true
           path: |
-            /tmp/ageos-llama-*.log
-            /tmp/openclaw/*.log
-            examples/**/.ageos/**/.openclaw/**/*.jsonl
-            examples/**/.ageos/**/.openclaw/**/*.json
+            .ci-artifacts/tmp/ageos-llama-*.log
+            .ci-artifacts/tmp/openclaw/*.log
+            .ci-artifacts/examples/**/.ageos/**/.openclaw/**/*.jsonl
+            .ci-artifacts/examples/**/.ageos/**/.openclaw/**/*.json

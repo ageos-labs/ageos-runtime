@@ -32,6 +32,18 @@ Check it:
 ageos --help
 ```
 
+Docker image:
+
+```bash
+docker pull ghcr.io/ageos-labs/ageos-runtime:latest
+```
+
+Use a release image as a base:
+
+```dockerfile
+FROM ghcr.io/ageos-labs/ageos-runtime:v0.1.0
+```
+
 ## Quick Start
 
 Ask the local model a question:
@@ -89,19 +101,46 @@ ageos run --memory 16G --root-dir openclaw --binary openclaw/node_modules/.bin/o
 
 ## Releases
 
-AgeOS ships from GitHub Releases only.
+AgeOS ships source install assets from GitHub Releases and runtime images from GHCR.
 
 Push a `v*` tag. The release workflow runs unit tests, runs local-inference integration tests, then publishes:
 
 - `install.sh`
 - `install.ps1`
 - `ageos-source.tar.gz`
+- `container-image.txt`
 - `SHA256SUMS`
 
 Install a specific tag:
 
 ```bash
 curl -fsSL https://github.com/ageos-labs/ageos-runtime/releases/latest/download/install.sh | AGEOS_VERSION=v0.1.0 bash
+```
+
+Use the matching runtime image:
+
+```bash
+docker pull ghcr.io/ageos-labs/ageos-runtime:v0.1.0
+```
+
+## Docker CI
+
+CI builds Docker targets from `docker/Dockerfile` with GitHub Actions layer caching:
+
+```bash
+docker build -f docker/Dockerfile --target unit-test -t ageos-runtime:unit .
+docker run --rm --privileged --security-opt seccomp=unconfined ageos-runtime:unit
+```
+
+Integration tests need Linux sandbox permissions and mounted caches:
+
+```bash
+mkdir -p .ageos-cache .pnpm-store
+docker build -f docker/Dockerfile --target integration-test -t ageos-runtime:integration .
+docker run --rm --privileged --security-opt seccomp=unconfined \
+  -v "$PWD/.ageos-cache:/cache/ageos" \
+  -v "$PWD/.pnpm-store:/cache/pnpm-store" \
+  ageos-runtime:integration
 ```
 
 ## License
