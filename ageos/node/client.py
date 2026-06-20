@@ -46,8 +46,15 @@ class SchedulerClient:
     def mark_model_unloaded(self, name: str) -> None:
         self.native.mark_model_unloaded(name)
 
-    def register_agent(self, binary: str, niceness: int, specialty: str | None = None, pid: int | None = None) -> str:
-        agent_id = f"agt-{uuid.uuid4().hex[:10]}"
+    def register_agent(
+        self,
+        binary: str,
+        niceness: int,
+        specialty: str | None = None,
+        pid: int | None = None,
+        agent_id: str | None = None,
+    ) -> str:
+        agent_id = agent_id or f"agt-{uuid.uuid4().hex[:10]}"
         self.native.register_agent(agent_id, pid or os.getpid(), binary, niceness, specialty)
         return agent_id
 
