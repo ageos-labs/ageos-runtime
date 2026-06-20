@@ -8,14 +8,14 @@ Thank you for your interest in contributing to AgeOS!
 2. Clone your fork locally:
 
 ```bash
-git clone https://github.com/<your-username>/ageos.git
+git clone https://github.com/<your-username>/ageos-runtime.git
 cd ageos
 ```
 
 3. Add the upstream repository:
 
 ```bash
-git remote add upstream https://github.com/ageos-labs/ageos.git
+git remote add upstream https://github.com/ageos-labs/ageos-runtime.git
 ```
 
 ## Branch Naming
@@ -121,10 +121,8 @@ Summary:
 
 ## Community
 
-If you find AgeOS useful, consider:
-
-* Starring the repository
-* Joining the project's Discord community
-* Helping review issues and pull requests
+- Website: https://ageos.dev
+- Discord: https://discord.gg/skwKqSgvD2
+- If you find AgeOS useful, consider starring the repository and joining the community.
 
 Thank you for contributing to AgeOS!
