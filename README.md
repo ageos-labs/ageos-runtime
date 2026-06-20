@@ -133,6 +133,21 @@ Use the matching runtime image:
 ```bash
 docker pull ghcr.io/ageos-labs/ageos-runtime:v0.1.0
 ```
+## Build from source
+
+1. Create and activate a virtual environment
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
+Install dependencies and build ageos 
+
+```base
+./scripts/install-deps.sh
+./scripts/build.sh
+```
 
 ## Test Before Push
 
