@@ -3,13 +3,13 @@ name: discord-notifications
 on:
   issues:
     types: [opened, closed]
-  pull_request:
-    types: [closed]
+  push:
     branches: [main]
 
 permissions:
   issues: read
   pull-requests: read
+  contents: read
 
 jobs:
   notify-issue:
@@ -140,18 +140,29 @@ jobs:
           fi
 
   notify-merge:
-    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+    if: github.event_name == 'push'
     runs-on: ubuntu-22.04
     steps:
       - name: Announce merge to Discord
         env:
           GH_TOKEN: ${{ github.token }}
           DISCORD_WEBHOOK_ANNOUNCEMENTS: ${{ secrets.DISCORD_WEBHOOK_ANNOUNCEMENTS }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           set -euo pipefail
 
+          PR_NUMBER="$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" --jq '.[0].number // empty')"
+          if [[ -z "$PR_NUMBER" ]]; then
+            echo "No pull request associated with ${GITHUB_SHA}; skipping merge announcement."
+            exit 0
+          fi
+
           pr_json="$(gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}")"
+          merged="$(echo "$pr_json" | jq -r '.merged_at // empty')"
+          if [[ -z "$merged" ]]; then
+            echo "PR #${PR_NUMBER} is not merged; skipping merge announcement."
+            exit 0
+          fi
+
           PR_TITLE="$(echo "$pr_json" | jq -r '.title')"
           PR_URL="$(echo "$pr_json" | jq -r '.html_url')"
           PR_USER="$(echo "$pr_json" | jq -r '.user.login')"
@@ -159,7 +170,7 @@ jobs:
 
           webhook="${DISCORD_WEBHOOK_ANNOUNCEMENTS:-}"
           if [[ -z "$webhook" ]]; then
-            echo "DISCORD_WEBHOOK_ANNOUNCEMENTS secret is required for merge announcements." >&2
+            echo "DISCORD_WEBHOOK_ANNOUNCEMENTS secret is required for merge announcements on ${GITHUB_REPOSITORY}." >&2
             exit 1
           fi
 
