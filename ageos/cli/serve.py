@@ -4,6 +4,7 @@ import typer
 
 from ageos.http_api import ApiConfig, run_http_api
 from ageos.inference import load_inference_config
+from ageos.log import log_info
 
 
 def command(
@@ -23,6 +24,7 @@ def command(
     resolved_host = host or defaults.host
     resolved_port = port or defaults.port
     resolved_specialty = speciality or defaults.default_specialty
+    log_info("starting http api", f"http://{resolved_host}:{resolved_port}")
     typer.echo(f"Serving AgeOS HTTP API on http://{resolved_host}:{resolved_port}")
     run_http_api(
         ApiConfig(

@@ -85,7 +85,7 @@ ${SUDO} mkdir -p "$BIN_DIR"
 ${SUDO} rm -f "$BIN_DIR/ageos" "$BIN_DIR/ageos-node"
 ${SUDO} tee "$BIN_DIR/ageos" >/dev/null <<EOF
 #!/usr/bin/env bash
-exec "$INSTALL_PREFIX/bin/python" -I -c 'import sys; sys.argv[0] = "ageos"; from ageos.cli.main import app; app()' "\$@"
+exec "$INSTALL_PREFIX/bin/python" -I -c 'import sys; sys.argv[0] = "ageos"; from ageos.cli.main import run_cli; run_cli()' "\$@"
 EOF
 ${SUDO} chmod 0755 "$BIN_DIR/ageos"
 ${SUDO} tee "$BIN_DIR/ageos-node" >/dev/null <<EOF

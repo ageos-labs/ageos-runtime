@@ -1,3 +1,4 @@
+#include "ageos/log.h"
 #include "ageos/sandbox.h"
 
 #include <stdint.h>
@@ -22,6 +23,7 @@ static uint64_t parse_bytes(const char *value) {
 }
 
 int main(int argc, char **argv) {
+    ageos_log_init();
     ageos_sandbox_config cfg = {
         .binary = NULL,
         .argv = NULL,
@@ -52,13 +54,19 @@ int main(int argc, char **argv) {
             cfg.root_dir = argv[++i];
         } else if (strcmp(argv[i], "--isolate-network") == 0) {
             cfg.isolate_network = 1;
+        } else if (strcmp(argv[i], "--log-level") == 0 && i + 1 < argc) {
+            ageos_log_set_level(argv[++i]);
         } else {
-            fprintf(stderr, "unknown ageos-sandbox option: %s\n", argv[i]);
+            AGEOS_LOG_ERROR("unknown ageos-sandbox option", "%s", argv[i]);
             return 2;
         }
     }
     if (i >= argc) {
-        fprintf(stderr, "usage: ageos-sandbox [--memory 2G] [--cpu 50] [--workdir DIR] [--root-dir DIR] [--isolate-network] -- COMMAND [ARGS...]\n");
+        AGEOS_LOG_ERROR("missing sandbox command", "");
+        AGEOS_LOG_INFO(
+            "ageos-sandbox usage",
+            "[--memory 2G] [--cpu 50] [--workdir DIR] [--root-dir DIR] [--isolate-network] [--log-level LEVEL] -- COMMAND [ARGS...]"
+        );
         return 2;
     }
     cfg.binary = argv[i];

@@ -7,6 +7,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from ageos.log import configure_logging, log_error, log_info, log_debug
 from ageos.native import HardwareInfo, detect_hardware
 
 LLAMA_GPU_BACKENDS = ("cuda-llama", "rocm-llama", "vulkan-llama", "sycl-llama")
@@ -49,31 +50,45 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--wheel", help="Local AgeOS wheel to install with optional extras.")
     parser.add_argument("--profile-out", help="Path to write the install profile JSON.")
     parser.add_argument("--no-install", action="store_true", help="Only compute and write the profile.")
+    parser.add_argument(
+        "--log-level",
+        default="error",
+        choices=("error", "info", "debug"),
+        help="Log verbosity: error (default), info, or debug.",
+    )
+    parser.add_argument("--log-file", help="Write AgeOS logs to this file.")
     args = parser.parse_args(argv)
 
+    configure_logging(args.log_level, args.log_file)
     hardware = detect_hardware()
     profile = choose_install_profile(hardware, args.mode)
+    log_debug("gpu setup profile", json.dumps(profile, sort_keys=True))
     if args.profile_out:
         _write_profile(Path(args.profile_out), profile)
 
     if not profile["supported"]:
         message = str(profile["reason"])
         if args.mode == "auto":
+            log_info("gpu setup continuing with cpu runtime", message)
             print(f"AgeOS GPU setup: {message}; continuing with CPU runtime.", file=sys.stderr)
             return 0
+        log_error("gpu setup failed", message)
         print(f"AgeOS GPU setup failed: {message}", file=sys.stderr)
         return 1
 
     if profile["install_vllm"] and not args.no_install:
         if not args.wheel:
+            log_error("gpu setup missing wheel for vllm install")
             print("AgeOS GPU setup failed: --wheel is required to install vLLM extras.", file=sys.stderr)
             return 1
         status = _install_vllm_extra(Path(args.wheel), forced=args.mode == "vllm")
         if status != 0 and args.mode == "auto":
+            log_info("gpu setup vllm install failed continuing without vllm")
             print("AgeOS GPU setup: vLLM install failed; continuing with non-vLLM runtime.", file=sys.stderr)
             return 0
         return status
 
+    log_info("gpu setup selected backend", f"{profile['backend']} ({profile['reason']})")
     print(f"AgeOS GPU setup: {profile['backend']} ({profile['reason']})")
     return 0
 
@@ -102,6 +117,7 @@ def _write_profile(path: Path, profile: dict[str, object]) -> None:
 
 def _install_vllm_extra(wheel: Path, *, forced: bool) -> int:
     target = f"{wheel}[vllm]"
+    log_info("installing vllm optional dependencies", target)
     print("AgeOS GPU setup: installing vLLM optional dependencies...")
     result = subprocess.run(
         [sys.executable, "-m", "pip", "install", target],
@@ -109,6 +125,7 @@ def _install_vllm_extra(wheel: Path, *, forced: bool) -> int:
         text=True,
     )
     if result.returncode != 0 and forced:
+        log_error("vllm optional dependency install failed")
         print("AgeOS GPU setup failed: vLLM optional dependency install failed.", file=sys.stderr)
     return int(result.returncode)
 

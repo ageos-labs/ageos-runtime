@@ -67,6 +67,20 @@ def test_ensure_inference_endpoint_starts_daemon_when_unhealthy() -> None:
     wait.assert_called_once_with("http://127.0.0.1:8000")
 
 
+def test_inference_daemon_discards_stdio_to_avoid_pipe_deadlock() -> None:
+    import subprocess
+
+    config = InferenceConfig(host="127.0.0.1", port=8000, default_specialty="default-instruct")
+    with patch("ageos.inference.subprocess.Popen") as popen:
+        from ageos.inference import _start_inference_daemon
+
+        _start_inference_daemon(config)
+
+    kwargs = popen.call_args.kwargs
+    assert kwargs["stdout"] is subprocess.DEVNULL
+    assert kwargs["stderr"] is subprocess.DEVNULL
+
+
 def test_sandbox_endpoint_uses_loopback_with_same_port() -> None:
     endpoint = _sandbox_inference_endpoint("http://10.0.0.10:8123")
     assert endpoint.host == "10.0.0.10"

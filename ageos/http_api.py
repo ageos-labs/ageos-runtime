@@ -12,6 +12,7 @@ from typing import Any
 
 from ageos.engine.registry import ModelRegistry
 from ageos.engine.session import EngineSession
+from ageos.log import log_debug, log_error
 
 
 DEFAULT_MAX_OUTPUT_TOKENS = 512
@@ -232,12 +233,14 @@ def _handler_for(config: ApiConfig) -> type[BaseHTTPRequestHandler]:
         server_version = "AgeOSHTTP/0.1"
 
         def do_GET(self) -> None:
+            log_debug("http request", f"GET {self.path}")
             if self.path == "/health":
                 self._send_json({"status": "ok"})
                 return
             self._send_error(HTTPStatus.NOT_FOUND, f"unknown endpoint: {self.path}")
 
         def do_POST(self) -> None:
+            log_debug("http request", f"POST {self.path}")
             try:
                 body = self._read_json()
                 if self.path == "/v1/chat/completions":
@@ -249,12 +252,14 @@ def _handler_for(config: ApiConfig) -> type[BaseHTTPRequestHandler]:
                 else:
                     self._send_error(HTTPStatus.NOT_FOUND, f"unknown endpoint: {self.path}")
             except ValueError as exc:
+                log_error("http bad request", str(exc))
                 self._send_error(HTTPStatus.BAD_REQUEST, str(exc))
             except Exception as exc:  # noqa: BLE001 - convert backend failures to JSON API errors.
+                log_error("http backend failure", str(exc))
                 self._send_error(HTTPStatus.BAD_GATEWAY, str(exc))
 
         def log_message(self, format: str, *args: object) -> None:
-            return
+            log_debug("http access", format % args if args else format)
 
         def _handle_chat_completions(self, body: dict[str, Any]) -> None:
             messages = body.get("messages")

@@ -5,6 +5,7 @@ from rich.console import Console
 
 from ageos.engine.session import EngineSession
 from ageos.inference import load_inference_config
+from ageos.log import log_debug, log_info
 
 console = Console()
 
@@ -18,6 +19,10 @@ def command(
     """Start a local model REPL for free-text testing."""
 
     resolved_speciality = speciality or load_inference_config().default_specialty
+    log_info(
+        "starting poc repl",
+        f"speciality={resolved_speciality} niceness={niceness} flavor={flavor} capability={capability}",
+    )
     console.print(f"[bold]AgeOS POC[/bold] speciality={resolved_speciality} niceness={niceness}")
     with EngineSession(
         resolved_speciality,
@@ -26,15 +31,20 @@ def command(
         capability=capability,
         status_callback=lambda message: console.print(f"[dim]{message}[/dim]"),
     ) as session:
+        log_debug("poc repl ready", resolved_speciality)
         while True:
             try:
                 text = input("ageos> ").strip()
             except (EOFError, KeyboardInterrupt):
+                log_debug("poc repl exiting", "interrupted")
                 console.print()
                 break
             if text in {":q", ":quit", "exit", "quit"}:
+                log_debug("poc repl exiting", "quit")
                 break
             if not text:
                 continue
+            log_debug("poc prompt", text)
             answer = session.chat([{"role": "user", "content": text}])
+            log_debug("poc response", f"chars={len(answer)}")
             console.print(answer)

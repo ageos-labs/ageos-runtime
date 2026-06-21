@@ -14,6 +14,7 @@ from ageos.engine.structured import (
     parse_json_output,
 )
 from ageos.inference import load_inference_config
+from ageos.log import log_debug, log_info
 
 
 def command(
@@ -33,6 +34,11 @@ def command(
     """Run one local prompt, optionally using structured JSON output."""
 
     resolved_speciality = speciality or load_inference_config().default_specialty
+    log_info(
+        "running prompt",
+        f"speciality={resolved_speciality} niceness={niceness} structured={structure is not None} output={output}",
+    )
+    log_debug("prompt text", text)
     with EngineSession(resolved_speciality, niceness=niceness) as session:
         payload = _run_prompt(
             resolved_speciality,
@@ -42,7 +48,9 @@ def command(
         )
     if output:
         output.write_text(payload + "\n", encoding="utf-8")
+        log_info("wrote prompt output", str(output))
     else:
+        log_debug("prompt result", f"chars={len(payload)}")
         typer.echo(payload)
 
 
@@ -53,14 +61,18 @@ def _run_prompt(
     chat: Callable[[list[dict[str, str]]], str],
 ) -> str:
     if structure is None:
+        log_debug("prompt mode", "plain")
         return chat([{"role": "user", "content": text}])
 
+    log_debug("prompt mode", "structured", f"schema={structure}")
     example = load_example_schema(structure)
     raw = chat(build_structured_messages(example, text))
     try:
         parsed = parse_json_output(raw)
-    except Exception:
+    except Exception as exc:
+        log_debug("structured output parse failed retrying", str(exc))
         repaired = chat(build_repair_messages(example, text, raw))
         parsed = parse_json_output(repaired)
+    log_debug("structured output parsed", f"keys={sorted(parsed.keys())}")
     return json.dumps(parsed, indent=2, sort_keys=True)
 

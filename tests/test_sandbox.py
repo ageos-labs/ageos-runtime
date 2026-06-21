@@ -235,16 +235,64 @@ def test_native_sandbox_strips_pythonpath_for_ageos_launcher(tmp_path: Path, mon
     malicious.mkdir()
     (malicious / "__init__.py").write_text("raise RuntimeError('shadowed ageos import')\n", encoding="utf-8")
     monkeypatch.setenv("PYTHONPATH", str(tmp_path))
+    host_log = Path("/tmp/ageos-host-log-leak-test.log")
+    host_log.unlink(missing_ok=True)
+    host_log.write_text("host-marker\n", encoding="utf-8")
+    monkeypatch.setenv("AGEOS_LOG_FILE", str(host_log))
 
-    result = NativeScheduler().run_sandbox(
-        str(launcher),
-        [str(launcher), "--version"],
-        resource_niceness=0,
-        memory_max=2 * 1024 * 1024 * 1024,
-        cpu_percent=0,
-        workdir=str(tmp_path),
-        root_dir=str(tmp_path),
-        isolate_network=False,
+    try:
+        result = NativeScheduler().run_sandbox(
+            str(launcher),
+            [str(launcher), "--version"],
+            resource_niceness=0,
+            memory_max=2 * 1024 * 1024 * 1024,
+            cpu_percent=0,
+            workdir=str(tmp_path),
+            root_dir=str(tmp_path),
+            isolate_network=False,
+        )
+
+        assert result == 0
+        assert host_log.read_text(encoding="utf-8") == "host-marker\n"
+    finally:
+        host_log.unlink(missing_ok=True)
+
+
+@pytest.mark.skipif(platform.system() != "Linux", reason="sandbox is Linux-only")
+def test_native_sandbox_allows_agent_local_log_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    python = Path("/opt/ageos/bin/python")
+    if not python.exists():
+        python = Path(__file__).resolve().parents[1] / ".venv" / "bin" / "python"
+    if not python.exists():
+        pytest.skip("AgeOS Python runtime not available")
+    host_log = Path("/tmp/ageos-host-only-ageos.log")
+    host_log.unlink(missing_ok=True)
+    monkeypatch.setenv("AGEOS_LOG_FILE", str(host_log))
+
+    command = (
+        "import os, sys\n"
+        "sys.argv = ['ageos', 'poc', '--log-file', os.path.join(os.environ['AGEOS_WORKSPACE'], 'ageos.log'), "
+        "'--log-level', 'debug', '-h']\n"
+        "from ageos.cli.main import run_cli\n"
+        "run_cli()\n"
     )
 
-    assert result == 0
+    try:
+        result = NativeScheduler().run_sandbox(
+            str(python),
+            [str(python), "-I", "-c", command],
+            resource_niceness=0,
+            memory_max=2 * 1024 * 1024 * 1024,
+            cpu_percent=0,
+            workdir=str(tmp_path),
+            root_dir=str(tmp_path),
+            isolate_network=False,
+        )
+
+        assert result == 0
+        log_path = tmp_path / "ageos.log"
+        assert log_path.is_file()
+        assert "ageos cli initialized" in log_path.read_text(encoding="utf-8")
+        assert not host_log.exists()
+    finally:
+        host_log.unlink(missing_ok=True)

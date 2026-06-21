@@ -31,7 +31,7 @@ langchain = [
 ]
 
 [project.scripts]
-ageos = "ageos.cli.main:app"
+ageos = "ageos.cli.main:run_cli"
 ageos-node = "ageos.node.daemon:main"
 
 [tool.setuptools.packages.find]
@@ -47,6 +47,7 @@ ageos = ["config/*.yaml"]
   "libageos/hw_detect.c",
   "libageos/landlock.c",
   "libageos/limits.c",
+  "libageos/log.c",
   "libageos/meson.build",
   "libageos/scheduler.c",
   "libageos/sandbox.c",
@@ -54,6 +55,7 @@ ageos = ["config/*.yaml"]
 "share/ageos/libageos/include/ageos" = [
   "libageos/include/ageos/hw.h",
   "libageos/include/ageos/limits.h",
+  "libageos/include/ageos/log.h",
   "libageos/include/ageos/scheduler.h",
   "libageos/include/ageos/sandbox.h",
 ]

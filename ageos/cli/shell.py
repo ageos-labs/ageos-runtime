@@ -7,6 +7,7 @@ from pathlib import Path
 import typer
 
 from ageos.cli.run import run_agent
+from ageos.log import log_info
 
 
 def command(
@@ -33,6 +34,7 @@ def command(
     shell = os.environ.get("SHELL") or shutil.which("bash") or "/bin/sh"
     args = list(ctx.args) or _interactive_args(shell)
     if not ctx.args:
+        log_info("entering sandbox shell")
         typer.echo("Entering AgeOS sandbox shell. Run `exit` to return to the host shell.")
     run_agent(
         binary=shell,

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import yaml
 
+from ageos.log import log_debug, log_info
 from ageos.native import Admission, NativeScheduler
 
 
@@ -55,10 +56,13 @@ class SchedulerClient:
         agent_id: str | None = None,
     ) -> str:
         agent_id = agent_id or f"agt-{uuid.uuid4().hex[:10]}"
+        log_debug("registering agent", f"agent_id={agent_id} binary={binary} specialty={specialty}")
         self.native.register_agent(agent_id, pid or os.getpid(), binary, niceness, specialty)
+        log_info("registered agent", agent_id)
         return agent_id
 
     def deregister_agent(self, agent_id: str) -> None:
+        log_debug("deregistering agent", agent_id)
         self.native.deregister_agent(agent_id)
 
     def queue_snapshot(self) -> list[dict[str, object]]:

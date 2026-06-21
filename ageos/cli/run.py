@@ -13,6 +13,7 @@ from urllib.parse import urlparse
 import typer
 
 from ageos.inference import apply_inference_env
+from ageos.log import log_debug, log_error, log_info
 from ageos.node.client import SchedulerClient
 
 _AGENT_ID_RE = re.compile(r"^agt-[A-Za-z0-9_-]+$")
@@ -87,22 +88,31 @@ def run_agent(
     )
     _record_persistent_sandbox(sandbox_paths.host_root_dir, agent_id)
     if persistent.reused:
+        log_info("reusing persistent sandbox", agent_id)
         typer.echo(f"Persistent sandbox found: reusing {agent_id}")
     sandbox_binary = _sandbox_path_for_host_path(resolved_binary, sandbox_paths, agent_id)
     env = os.environ.copy()
     env["AGEOS_AGENT_ID"] = agent_id
     env["AGEOS_NICENESS"] = str(niceness)
     env.setdefault("AGEOS_CACHE", str(Path.home() / ".cache" / "ageos"))
+    env.pop("AGEOS_LOG_FILE", None)
     _add_pnpm_home_to_path(env)
     endpoint = apply_inference_env(env, speciality)
+    log_info("using inference endpoint", endpoint)
     typer.echo(f"Using AgeOS inference endpoint at {endpoint}")
     cwd = sandbox_paths.sandbox_workdir
     sandbox_args = [*_argv_for_binary(sandbox_binary), *extra_args]
     host_args = [*_argv_for_binary(resolved_binary), *extra_args]
+    log_debug(
+        "launching agent",
+        f"agent_id={agent_id} binary={resolved_binary} sandbox={not unsafe_no_sandbox}",
+    )
     try:
         if platform.system() != "Linux" and not unsafe_no_sandbox:
+            log_error("sandbox unavailable on platform", platform.system())
             raise typer.BadParameter("ageos run sandbox is Linux-only; use --unsafe-no-sandbox for local development")
         if unsafe_no_sandbox:
+            log_info("running without sandbox", str(resolved_binary))
             raise typer.Exit(subprocess.call(host_args, cwd=sandbox_paths.host_workdir, env=env))
         inference = _sandbox_inference_endpoint(endpoint)
         _apply_sandbox_inference_env(env, inference)
@@ -120,6 +130,7 @@ def run_agent(
             inference_port=inference.host_port,
             sandbox_inference_port=inference.sandbox_port,
         )
+        log_debug("sandbox exited", f"agent_id={agent_id} exit_code={exit_code}")
         raise typer.Exit(exit_code)
     finally:
         client.deregister_agent(agent_id)

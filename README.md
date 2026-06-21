@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/ageos-logo.png" alt="AgeOS logo" width="120">
+  <img src="assets/ageos-logo.png" alt="AgeOS logo" width="175">
   <p>Local LLM serving and sandboxed agents in one command.</p>
   <p>
     <a href="https://github.com/ageos-labs/ageos-runtime/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ageos-labs/ageos-runtime/actions/workflows/ci.yml/badge.svg"></a>

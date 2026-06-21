@@ -11,6 +11,8 @@ from pathlib import Path
 import requests
 import yaml
 
+from ageos.log import log_debug, log_error, log_info
+
 
 @dataclass(frozen=True)
 class InferenceConfig:
@@ -50,9 +52,12 @@ def ensure_inference_endpoint(config: InferenceConfig | None = None) -> str:
         return explicit.rstrip("/")
     resolved = config or load_inference_config()
     if is_healthy(resolved.base_url):
+        log_debug("inference endpoint already healthy", resolved.base_url)
         return resolved.base_url
+    log_info("starting inference daemon", resolved.base_url)
     _start_inference_daemon(resolved)
     wait_until_healthy(resolved.base_url)
+    log_info("inference endpoint ready", resolved.base_url)
     return resolved.base_url
 
 
@@ -70,6 +75,7 @@ def wait_until_healthy(base_url: str, timeout_seconds: float = 30.0) -> None:
         if is_healthy(base_url):
             return
         time.sleep(0.25)
+    log_error("inference endpoint failed health check", base_url)
     raise RuntimeError(f"AgeOS inference endpoint did not become healthy: {base_url}")
 
 
@@ -91,6 +97,10 @@ def _start_inference_daemon(config: InferenceConfig) -> None:
     env["AGEOS_INFERENCE_HOST"] = config.host
     env["AGEOS_INFERENCE_PORT"] = str(config.port)
     env["AGEOS_INFERENCE_SPECIALTY"] = config.default_specialty
+    env.setdefault("AGEOS_LOG_LEVEL", os.environ.get("AGEOS_LOG_LEVEL", "error"))
+    if "AGEOS_LOG_FILE" in os.environ:
+        env["AGEOS_LOG_FILE"] = os.environ["AGEOS_LOG_FILE"]
+    log_debug("spawning inference daemon", f"python={python} host={config.host} port={config.port}")
     subprocess.Popen(
         [python, "-m", "ageos.cli.inference_daemon"],
         env=env,

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
 import typer
@@ -18,6 +20,7 @@ from ageos.cli import serve as serve_cmd
 from ageos.cli import shell as shell_cmd
 from ageos.engine.registry import ModelRegistry
 from ageos.engine.selector import select_tier
+from ageos.log import configure_logging, extract_global_log_options, log_debug, log_error, log_info
 from ageos.native import detect_hardware, is_sandboxed
 from ageos.node.client import SchedulerClient
 
@@ -30,7 +33,12 @@ RUN_CONTEXT = {
 
 app = typer.Typer(
     name="ageos",
-    help="AgeOS local agent runtime, model scheduler, and sandbox CLI.",
+    help=(
+        "AgeOS local agent runtime, model scheduler, and sandbox CLI.\n\n"
+        "Global options (may appear before or after any command):\n"
+        "  --log-level [error|info|debug]\n"
+        "  --log-file PATH"
+    ),
     context_settings=HELP_CONTEXT,
     no_args_is_help=True,
 )
@@ -65,6 +73,7 @@ def _version_callback(value: bool) -> None:
 
 @app.callback()
 def main(
+    ctx: typer.Context,
     version: bool = typer.Option(
         False,
         "--version",
@@ -74,6 +83,9 @@ def main(
     ),
 ) -> None:
     """AgeOS MVP command surface."""
+
+    ctx.obj = {"log_level": os.environ.get("AGEOS_LOG_LEVEL", "error")}
+    log_debug("ageos cli initialized", f"version={__version__} log_level={ctx.obj['log_level']}")
 
 
 @models_app.callback(invoke_without_command=True)
@@ -156,10 +168,12 @@ def models_stop() -> None:
     models = snapshot.get("models", [])
     loaded = [model for model in models if isinstance(model, dict) and model.get("name")]
     if not loaded:
+        log_info("no loaded models to stop")
         typer.echo("No loaded models to stop.")
         return
     for model in loaded:
         client.evict_model(str(model["name"]))
+    log_info("stopped loaded models", f"count={len(loaded)}")
     typer.echo(f"Stopped {len(loaded)} loaded model(s).")
 
 
@@ -280,6 +294,20 @@ def _user_models_config_path() -> Path:
 
 def _deny_in_sandbox(command: str) -> None:
     if is_sandboxed():
+        log_error("command denied inside sandbox", command)
         raise typer.BadParameter(
             f"{command} is only available to the real host user, not from inside an AgeOS sandbox"
         )
+
+
+def run_cli() -> None:
+    """Entry point that accepts global log flags before or after the subcommand."""
+
+    try:
+        cleaned, log_level, log_file = extract_global_log_options(sys.argv[1:])
+    except ValueError as exc:
+        print(f"ERROR main.py run_cli invalid log option:{exc}", file=sys.stderr)
+        raise SystemExit(2) from exc
+    configure_logging(log_level, log_file)
+    sys.argv = [sys.argv[0], *cleaned]
+    app()

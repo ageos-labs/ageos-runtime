@@ -1,6 +1,7 @@
 #include "ageos/scheduler.h"
 
 #include "ageos/hw.h"
+#include "ageos/log.h"
 
 #include <errno.h>
 #include <fcntl.h>
@@ -479,6 +480,14 @@ int ageos_scheduler_admit_model_job(
     *allowed = is_allowed;
     copy_field(state, state_size, current_state);
     copy_field(reason, reason_size, current_reason);
+    AGEOS_LOG_DEBUG(
+        "admitted model job",
+        "model=%s allowed=%d state=%s reason=%s",
+        model_name,
+        is_allowed,
+        current_state,
+        current_reason
+    );
     if (!is_allowed) {
         char job_id[AGEOS_FIELD_SMALL];
         snprintf(job_id, sizeof(job_id), "job-%ld-%d", (long)time(NULL), (int)getpid());
@@ -520,6 +529,7 @@ int ageos_scheduler_register_agent(
     copy_field(record->status, sizeof(record->status), "running");
     copy_field(record->specialty, sizeof(record->specialty), specialty);
     record->registered_at = ageos_now_seconds();
+    AGEOS_LOG_INFO("registered agent", "agent_id=%s pid=%lld binary=%s", agent_id, (long long)pid, binary);
     return unlock_state(&locked, 1);
 }
 
@@ -531,6 +541,7 @@ int ageos_scheduler_deregister_agent(const char *agent_id) {
     int index = find_agent(&locked.state, agent_id);
     if (index >= 0) {
         memset(&locked.state.agents[index], 0, sizeof(locked.state.agents[index]));
+        AGEOS_LOG_INFO("deregistered agent", "agent_id=%s", agent_id);
     }
     return unlock_state(&locked, 1);
 }
@@ -577,6 +588,14 @@ int ageos_scheduler_mark_model_loaded(
     record->refcount = 1;
     record->loaded_at = ageos_now_seconds();
     record->last_used = record->loaded_at;
+    AGEOS_LOG_INFO(
+        "marked model loaded",
+        "name=%s backend=%s pid=%lld port=%d",
+        name,
+        backend,
+        (long long)pid,
+        port
+    );
     return unlock_state(&locked, 1);
 }
 
@@ -603,6 +622,7 @@ int ageos_scheduler_evict_model(const char *name) {
     int index = find_model(&locked.state, name);
     if (index >= 0) {
         evict_model_at(&locked.state, index);
+        AGEOS_LOG_INFO("evicted model", "name=%s", name);
     }
     return unlock_state(&locked, 1);
 }
@@ -1095,7 +1115,9 @@ static int spawn_llama_backend(const ageos_chat_request *request, int *port_out,
     if (log_fd >= 0) {
         close(log_fd);
     }
+    AGEOS_LOG_DEBUG("spawned llama backend", "port=%d pid=%lld log=%s", port, (long long)pid, log_template);
     if (!wait_for_backend_health(pid, port, 120)) {
+        AGEOS_LOG_ERROR("llama backend failed health check", "port=%d pid=%lld log=%s", port, (long long)pid, log_template);
         kill(pid, SIGTERM);
         return -1;
     }
@@ -1157,7 +1179,9 @@ static int spawn_vllm_backend(const ageos_chat_request *request, int *port_out, 
     if (log_fd >= 0) {
         close(log_fd);
     }
+    AGEOS_LOG_DEBUG("spawned vllm backend", "port=%d pid=%lld log=%s", port, (long long)pid, log_template);
     if (!wait_for_backend_health(pid, port, 180)) {
+        AGEOS_LOG_ERROR("vllm backend failed health check", "port=%d pid=%lld log=%s", port, (long long)pid, log_template);
         kill(pid, SIGTERM);
         return -1;
     }
@@ -1192,6 +1216,7 @@ static int ensure_native_model_loaded(const ageos_chat_request *request, int *po
     int64_t pid = 0;
     if (model_process_record(request->model_name, &pid, &port)) {
         if (port > 0 && pid_is_running(pid) && http_get_health(port)) {
+            AGEOS_LOG_INFO("reusing loaded model", "model=%s port=%d pid=%lld", request->model_name, port, (long long)pid);
             ageos_scheduler_mark_model_loaded(
                 request->model_name,
                 request->specialty,

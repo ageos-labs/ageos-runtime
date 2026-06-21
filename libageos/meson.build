@@ -9,6 +9,7 @@ libageos_sources = [
   'hw_detect.c',
   'limits.c',
   'landlock.c',
+  'log.c',
   'scheduler.c',
   'sandbox.c',
 ]

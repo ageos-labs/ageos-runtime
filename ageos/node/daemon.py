@@ -5,6 +5,7 @@ import time
 
 import typer
 
+from ageos.log import configure_logging, log_info
 from ageos.node.client import SchedulerClient
 
 
@@ -15,7 +16,9 @@ def main() -> None:
     and operators an always-on process shape that can later switch to Unix-socket IPC.
     """
 
+    configure_logging()
     client = SchedulerClient.local()
+    log_info("ageos-node running")
     typer.echo("ageos-node running (MVP local scheduler)")
     try:
         while True:

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from ageos.engine.downloader import HfDownloader
 from ageos.engine.registry import ModelRegistry, ModelSpec
 from ageos.engine.selector import select_tier
+from ageos.log import log_debug, log_info
 from ageos.native import detect_hardware
 from ageos.node.client import SchedulerClient
 
@@ -59,9 +60,10 @@ class EngineSession:
         if not candidates:
             raise RuntimeError(f"no model matches specialty '{self.specialty}' for available RAM/VRAM")
         model = candidates[0]
-        self._status(f"Selected model {model.name} ({model.backend}, {model.placement})")
-        self._status(f"Ensuring model files for {model.repo_id}")
+        log_info("selected model", f"{model.name} backend={model.backend} placement={model.placement}")
+        log_debug("ensuring model files", model.repo_id)
         model_path = str(HfDownloader().ensure_model(model))
+        log_debug("resolved model path", model_path)
         self.resolved = ResolvedSession(model=model, model_path=model_path)
         return self
 

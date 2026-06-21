@@ -1,6 +1,7 @@
 #define _GNU_SOURCE
 
 #include "ageos/limits.h"
+#include "ageos/log.h"
 #include "ageos/sandbox.h"
 
 #include <errno.h>
@@ -313,7 +314,7 @@ static void namespace_inference_proxy(int control_fd, uint32_t listen_port) {
     }
     int listener_fd = create_loopback_listener(listen_port);
     if (listener_fd < 0) {
-        fprintf(stderr, "ageos-sandbox: failed to expose inference endpoint: %s\n", strerror(-listener_fd));
+        AGEOS_LOG_ERROR("failed to expose inference endpoint", "%s", strerror(-listener_fd));
         _exit(126);
     }
     for (;;) {
@@ -776,6 +777,7 @@ static int setup_sandbox_runtime_env(
     unsetenv("PYTHONPATH");
     unsetenv("PYTHONHOME");
     unsetenv("PYTHONUSERBASE");
+    unsetenv("AGEOS_LOG_FILE");
     setenv("PYTHONNOUSERSITE", "1", 1);
     return setup_sandbox_scheduler_env(host_uid);
 }
@@ -808,9 +810,25 @@ static int setup_user_namespace(uid_t agent_uid, gid_t agent_gid) {
 }
 
 int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
+    ageos_log_init();
     if (cfg == NULL || cfg->binary == NULL || cfg->argv == NULL || cfg->workdir == NULL) {
+        AGEOS_LOG_ERROR("invalid sandbox configuration", "");
         return -EINVAL;
     }
+    AGEOS_LOG_INFO(
+        "starting sandbox",
+        "binary=%s workdir=%s isolate_network=%d",
+        cfg->binary,
+        cfg->workdir,
+        cfg->isolate_network
+    );
+    AGEOS_LOG_DEBUG(
+        "sandbox resource limits",
+        "memory_max=%llu cpu_percent=%u niceness=%d",
+        (unsigned long long)cfg->memory_max,
+        cfg->cpu_percent,
+        cfg->resource_niceness
+    );
     uid_t host_uid = getuid();
     gid_t host_gid = getgid();
     uid_t agent_uid = sandbox_agent_uid(host_uid);
@@ -875,7 +893,7 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
         ageos_apply_cgroup_limits(cfg);
         int userns_rc = setup_user_namespace(agent_uid, agent_gid);
         if (userns_rc != 0) {
-            fprintf(stderr, "ageos-sandbox: failed to create sandbox user namespace: %s\n", strerror(-userns_rc));
+            AGEOS_LOG_ERROR("failed to create sandbox user namespace", "%s", strerror(-userns_rc));
             _exit(126);
         }
         int unshare_flags = CLONE_NEWNS | CLONE_NEWIPC | CLONE_NEWUTS;
@@ -883,19 +901,19 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
             unshare_flags |= CLONE_NEWNET;
         }
         if (unshare(unshare_flags) != 0) {
-            fprintf(stderr, "ageos-sandbox: failed to create sandbox namespaces: %s\n", strerror(errno));
+            AGEOS_LOG_ERROR("failed to create sandbox namespaces", "%s", strerror(errno));
             _exit(126);
         }
         if (cfg->isolate_network) {
             int loopback_rc = setup_loopback();
             if (loopback_rc != 0) {
-                fprintf(stderr, "ageos-sandbox: failed to enable sandbox loopback: %s\n", strerror(-loopback_rc));
+                AGEOS_LOG_ERROR("failed to enable sandbox loopback", "%s", strerror(-loopback_rc));
                 _exit(126);
             }
             if (inference_proxy_enabled) {
                 int proxy_rc = start_namespace_inference_proxy(inference_control[1], cfg->sandbox_inference_port);
                 if (proxy_rc != 0) {
-                    fprintf(stderr, "ageos-sandbox: failed to start native inference proxy: %s\n", strerror(-proxy_rc));
+                    AGEOS_LOG_ERROR("failed to start native inference proxy", "%s", strerror(-proxy_rc));
                     _exit(126);
                 }
                 close(inference_control[1]);
@@ -906,7 +924,7 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
         }
         int mounts_rc = setup_mounts(sandbox_root, cfg->workdir, cfg->root_dir);
         if (mounts_rc != 0) {
-            fprintf(stderr, "ageos-sandbox: failed to create filesystem sandbox: %s\n", strerror(-mounts_rc));
+            AGEOS_LOG_ERROR("failed to create filesystem sandbox", "%s", strerror(-mounts_rc));
             _exit(126);
         }
         const char *writable_dir = (cfg->root_dir != NULL && cfg->root_dir[0] != '\0') ? cfg->root_dir : sandbox_root;
@@ -920,12 +938,12 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
             agent_gid
         );
         if (env_rc != 0) {
-            fprintf(stderr, "ageos-sandbox: failed to prepare sandbox runtime env: %s\n", strerror(-env_rc));
+            AGEOS_LOG_ERROR("failed to prepare sandbox runtime env", "%s", strerror(-env_rc));
             _exit(126);
         }
         int landlock_rc = ageos_landlock_apply_filesystem(writable_dir);
         if (landlock_rc != 0) {
-            fprintf(stderr, "ageos-sandbox: failed to apply filesystem policy: %s\n", strerror(-landlock_rc));
+            AGEOS_LOG_ERROR("failed to apply filesystem policy", "%s", strerror(-landlock_rc));
             _exit(126);
         }
         apply_no_new_privs();
@@ -965,7 +983,7 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
 #else
 int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
     (void)cfg;
-    fprintf(stderr, "ageos sandbox is only supported on Linux\n");
+    AGEOS_LOG_ERROR("sandbox is only supported on Linux", "");
     return -ENOTSUP;
 }
 #endif

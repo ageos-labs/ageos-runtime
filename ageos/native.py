@@ -56,6 +56,27 @@ AGEOS_AGENT_UID_BASE = 60000
 AGEOS_AGENT_UID_END = 64000
 
 
+def sync_log_config(level: str, log_file: str | None = None) -> None:
+    """Push the current Python log settings into libageos."""
+
+    try:
+        lib = _load_libageos()
+        lib.ageos_log_set_level.argtypes = [ctypes.c_char_p]
+        lib.ageos_log_set_level.restype = None
+        lib.ageos_log_set_level(_bytes(level))
+        lib.ageos_log_set_file.argtypes = [ctypes.c_char_p]
+        lib.ageos_log_set_file.restype = None
+        lib.ageos_log_set_file(_bytes(log_file))
+    except (LibAgeosError, AttributeError):
+        return
+
+
+def sync_log_level(level: str) -> None:
+    """Push the current Python log level into libageos."""
+
+    sync_log_config(level, os.environ.get("AGEOS_LOG_FILE"))
+
+
 def _load_libageos() -> ctypes.CDLL:
     candidates = [
         Path(__file__).resolve().parent / "libageos.so",
@@ -387,6 +408,9 @@ class NativeScheduler:
             ctypes.sizeof(reason),
         )
         if int(result) != 0:
+            from ageos.log import log_error
+
+            log_error("native scheduler admission failed")
             raise LibAgeosError("native scheduler admission failed")
         return Admission(
             allowed=bool(allowed.value),
@@ -537,6 +561,12 @@ class NativeScheduler:
             inference_host=_bytes(inference_host),
             inference_port=int(inference_port),
             sandbox_inference_port=int(sandbox_inference_port),
+        )
+        from ageos.log import log_debug
+
+        log_debug(
+            "calling native sandbox",
+            f"binary={binary} workdir={workdir} isolate_network={isolate_network}",
         )
         return int(self.lib.ageos_sandbox_run(ctypes.byref(config)))
 
