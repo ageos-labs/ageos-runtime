@@ -1,0 +1,42 @@
+name: Maintainer Task
+description: Internal template for maintainers to track feature work and enhancements.
+title: "feat: "
+labels: ["feature", "enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This template is intended for maintainers to plan and track feature work or improvements. Fill in all sections before assigning or starting work.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: A clear and concise description of the feature or enhancement.
+      placeholder: Describe what needs to be done and why.
+    validations:
+      required: true
+
+  - type: textarea
+    id: tasks
+    attributes:
+      label: Tasks
+      description: Break the work down into actionable tasks. Use a checklist.
+      placeholder: |
+        - [ ] Task 1
+        - [ ] Task 2
+        - [ ] Task 3
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation
+      description: Define the criteria that must be met to consider this issue resolved.
+      placeholder: |
+        - [ ] Acceptance criterion 1
+        - [ ] Acceptance criterion 2
+        - [ ] Tests pass
+    validations:
+      required: true
