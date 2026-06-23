@@ -1,8 +1,7 @@
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/ageos-logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="assets/ageos-logo-light.svg">
-    <img src="assets/ageos-logo-light.svg" alt="AgeOS logo" width="175">
+    <source media="(prefers-color-scheme: dark)" srcset="https://github.com/user-attachments/assets/17cf302c-b148-4b4b-b446-8d29f8303dfd">
+    <img src="assets/ageos-logo.png" alt="AgeOS logo" width="175">
   </picture>
   <p>Local LLM serving and sandboxed agents in one command.</p>
   <p>
