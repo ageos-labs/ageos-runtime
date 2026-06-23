@@ -26,7 +26,7 @@ def test_chat_completion_payload_is_openai_shaped() -> None:
 def test_responses_input_accepts_string_and_message_list() -> None:
     assert messages_from_responses_input("hi") == [{"role": "user", "content": "hi"}]
     assert messages_from_responses_input([{"role": "user", "content": [{"type": "input_text", "text": "hello"}]}]) == [
-        {"role": "user", "content": "hello"}
+        {"role": "user", "content": "hello"},
     ]
 
 
