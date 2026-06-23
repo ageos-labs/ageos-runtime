@@ -1,7 +1,7 @@
+import os
 import platform
 import shutil
 import subprocess
-import os
 from pathlib import Path
 
 import pytest
@@ -140,7 +140,7 @@ def test_native_sandbox_uses_ubuntu_rootfs_overlay(tmp_path: Path, monkeypatch: 
             "/bin/sh",
             "-c",
             (
-                'grep -q \'VERSION_ID="26.04"\' /etc/os-release && '
+                "grep -q 'VERSION_ID=\"26.04\"' /etc/os-release && "
                 'test "$AGEOS_ROOTFS_RELEASE" = "ubuntu-26.04" && '
                 'test "$PWD" = "$HOME/workspace" && '
                 'printf "private" > /etc/ageos-overfs-test'
@@ -242,9 +242,7 @@ def test_native_sandbox_blocks_installed_ageos_writes(tmp_path: Path) -> None:
         [
             "/bin/sh",
             "-c",
-            "touch /opt/ageos/.ageos-denied 2>/dev/null && exit 10; "
-            "printf x >> /usr/local/bin/ageos 2>/dev/null && exit 11; "
-            "exit 0",
+            "touch /opt/ageos/.ageos-denied 2>/dev/null && exit 10; printf x >> /usr/local/bin/ageos 2>/dev/null && exit 11; exit 0",
         ],
         resource_niceness=0,
         memory_max=2 * 1024 * 1024 * 1024,
@@ -261,7 +259,7 @@ def test_native_sandbox_runs_workspace_managed_tool(tmp_path: Path, monkeypatch:
     monkeypatch.setenv("AGEOS_AGENT_ID", "agt-workspace-tool")
     tool = tmp_path / "node_modules" / ".bin" / "workspace-tool"
     tool.parent.mkdir(parents=True)
-    tool.write_text("#!/bin/sh\nprintf workspace-tool-ok > \"$HOME/workspace-tool.out\"\n", encoding="utf-8")
+    tool.write_text('#!/bin/sh\nprintf workspace-tool-ok > "$HOME/workspace-tool.out"\n', encoding="utf-8")
     tool.chmod(0o755)
 
     result = NativeScheduler().run_sandbox(

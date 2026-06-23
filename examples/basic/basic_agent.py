@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 from ageos.integrations.openai_shim import AgeosOpenAI
@@ -24,10 +23,7 @@ def main() -> int:
         messages=[
             {
                 "role": "user",
-                "content": (
-                    "Reply with one short sentence confirming the AgeOS basic "
-                    "agent can reach the local model."
-                ),
+                "content": ("Reply with one short sentence confirming the AgeOS basic agent can reach the local model."),
             }
         ],
     )

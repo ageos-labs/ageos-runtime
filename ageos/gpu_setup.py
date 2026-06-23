@@ -7,7 +7,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
-from ageos.log import configure_logging, log_error, log_info, log_debug
+from ageos.log import configure_logging, log_debug, log_error, log_info
 from ageos.native import HardwareInfo, detect_hardware
 
 LLAMA_GPU_BACKENDS = ("cuda-llama", "rocm-llama", "vulkan-llama", "sycl-llama")

@@ -12,9 +12,7 @@ def command() -> None:
     """Show running agents and loaded models."""
 
     if is_sandboxed():
-        raise typer.BadParameter(
-            "ageos ps is only available to the real host user, not from inside an AgeOS sandbox"
-        )
+        raise typer.BadParameter("ageos ps is only available to the real host user, not from inside an AgeOS sandbox")
     snapshot = SchedulerClient.local().status_snapshot()
     console = Console()
     console.print(f"Memory pressure: [bold]{snapshot['memory_pressure']}[/bold]")

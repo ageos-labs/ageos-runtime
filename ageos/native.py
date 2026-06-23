@@ -98,9 +98,7 @@ def _load_libageos() -> ctypes.CDLL:
                 errors.append(f"{path}: {exc}")
     detail = "; ".join(errors) if errors else "no candidate library path exists"
     raise LibAgeosError(
-        "libageos.so is required but could not be loaded. "
-        "Run ./scripts/build.sh or install the AgeOS native package. "
-        f"Details: {detail}"
+        f"libageos.so is required but could not be loaded. Run ./scripts/build.sh or install the AgeOS native package. Details: {detail}"
     )
 
 

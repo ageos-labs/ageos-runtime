@@ -12,7 +12,5 @@ def command(
     """Open the htop-style AgeOS terminal dashboard."""
 
     if is_sandboxed():
-        raise typer.BadParameter(
-            "ageos dashboard is only available to the real host user, not from inside an AgeOS sandbox"
-        )
+        raise typer.BadParameter("ageos dashboard is only available to the real host user, not from inside an AgeOS sandbox")
     run_dashboard(refresh_seconds=refresh)

@@ -225,9 +225,7 @@ def test_run_agent_reuses_persistent_sandbox(tmp_path: Path, capsys: pytest.Capt
     assert "Persistent sandbox found: reusing agt-existing" in capsys.readouterr().out
 
 
-def test_run_agent_does_not_print_persistent_message_without_existing_sandbox(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_run_agent_does_not_print_persistent_message_without_existing_sandbox(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     binary = tmp_path / "true"
     binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     client = Mock()
@@ -256,9 +254,7 @@ def test_run_agent_does_not_print_persistent_message_without_existing_sandbox(
     assert "Persistent sandbox found" not in capsys.readouterr().out
 
 
-def test_run_agent_force_new_sandbox_removes_existing_agent_home(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
+def test_run_agent_force_new_sandbox_removes_existing_agent_home(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     binary = tmp_path / "true"
     binary.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
     agent_dir = tmp_path / ".ageos" / "agents" / "agt-existing"
@@ -337,9 +333,7 @@ def test_run_agent_passes_rootfs_and_overlay_paths(tmp_path: Path, monkeypatch: 
     assert captured_env["AGEOS_ROOTFS_RELEASE"] == "ubuntu-26.04"
 
 
-def test_run_agent_creates_temporary_overlay_workspace_for_system_binary(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_run_agent_creates_temporary_overlay_workspace_for_system_binary(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     rootfs = tmp_path / "rootfs"
     rootfs.mkdir()
     monkeypatch.setenv("AGEOS_ROOTFS_DIR", str(rootfs))

@@ -46,6 +46,5 @@ class HfDownloader:
             )
         except Exception as exc:  # noqa: BLE001 - keep first-run error actionable.
             raise DownloadError(
-                f"failed to download {model.repo_id}; set HF_TOKEN for gated models or "
-                f"register a local path in ~/.config/ageos/models.yaml"
+                f"failed to download {model.repo_id}; set HF_TOKEN for gated models or register a local path in ~/.config/ageos/models.yaml"
             ) from exc

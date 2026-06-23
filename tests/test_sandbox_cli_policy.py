@@ -4,9 +4,8 @@ from unittest.mock import patch
 import pytest
 import typer
 
-from ageos.cli import dashboard
+from ageos.cli import dashboard, ps
 from ageos.cli import main as cli_main
-from ageos.cli import ps
 
 
 def test_dashboard_is_denied_inside_sandbox(monkeypatch: pytest.MonkeyPatch) -> None:

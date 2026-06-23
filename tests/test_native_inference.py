@@ -12,8 +12,8 @@ from threading import Thread
 import pytest
 import requests
 
-from ageos.http_api import ApiConfig, create_http_server
 from ageos.engine.session import EngineSession
+from ageos.http_api import ApiConfig, create_http_server
 from ageos.integrations.openai_shim import AgeosOpenAI
 from ageos.node.client import SchedulerClient
 

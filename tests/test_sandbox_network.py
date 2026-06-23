@@ -8,7 +8,6 @@ import pytest
 
 from ageos.native import NativeScheduler
 
-
 pytestmark = pytest.mark.skipif(platform.system() != "Linux", reason="sandbox network tests are Linux-only")
 
 

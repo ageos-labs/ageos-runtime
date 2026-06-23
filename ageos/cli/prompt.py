@@ -75,4 +75,3 @@ def _run_prompt(
         parsed = parse_json_output(repaired)
     log_debug("structured output parsed", f"keys={sorted(parsed.keys())}")
     return json.dumps(parsed, indent=2, sort_keys=True)
-

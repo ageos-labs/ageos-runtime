@@ -8,7 +8,6 @@ from ageos.engine.registry import ModelSpec
 from ageos.engine.session import EngineSession
 from ageos.native import HardwareInfo
 
-
 GPU_MODEL = ModelSpec(
     name="gpu-model",
     flavor="qwen",

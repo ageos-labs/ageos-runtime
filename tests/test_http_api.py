@@ -1,5 +1,11 @@
+from threading import Thread
+from unittest.mock import patch
+
+import requests
+
 from ageos.http_api import (
     ApiConfig,
+    _resolve_specialty_alias,
     chat_completion_payload,
     create_http_server,
     embeddings_payload,
@@ -7,13 +13,7 @@ from ageos.http_api import (
     normalize_chat_messages,
     normalize_embeddings_input,
     responses_payload,
-    _resolve_specialty_alias,
 )
-from threading import Thread
-from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, patch
-
-import requests
 
 
 def test_chat_completion_payload_is_openai_shaped() -> None:
@@ -25,9 +25,9 @@ def test_chat_completion_payload_is_openai_shaped() -> None:
 
 def test_responses_input_accepts_string_and_message_list() -> None:
     assert messages_from_responses_input("hi") == [{"role": "user", "content": "hi"}]
-    assert messages_from_responses_input(
-        [{"role": "user", "content": [{"type": "input_text", "text": "hello"}]}]
-    ) == [{"role": "user", "content": "hello"}]
+    assert messages_from_responses_input([{"role": "user", "content": [{"type": "input_text", "text": "hello"}]}]) == [
+        {"role": "user", "content": "hello"}
+    ]
 
 
 def test_chat_message_normalization_accepts_openclaw_history() -> None:
@@ -38,7 +38,9 @@ def test_chat_message_normalization_accepts_openclaw_history() -> None:
             {"role": "assistant", "content": "[assistant turn failed before producing content]"},
             {
                 "role": "assistant",
-                "content": "Context overflow: prompt too large for the model. Try /reset (or /new) to start a fresh session, or use a larger-context model.",
+                "content": (
+                    "Context overflow: prompt too large for the model. Try /reset (or /new) to start a fresh session, or use a larger-context model."
+                ),
             },
             {"role": "developer", "content": "follow instructions"},
             {"role": "tool", "tool_call_id": "read-1", "content": "file contents"},

@@ -14,7 +14,6 @@ from ageos.engine.registry import ModelRegistry
 from ageos.engine.session import EngineSession
 from ageos.log import log_debug, log_error
 
-
 DEFAULT_MAX_OUTPUT_TOKENS = 512
 
 

@@ -56,7 +56,11 @@ def command(
         help="Discard any persistent sandbox under --root-dir and start with a new agent home.",
     ),
     unsafe_no_sandbox: bool = typer.Option(False, "--unsafe-no-sandbox", help="Development escape hatch only."),
-    allow_network: bool = typer.Option(False, "--allow-network", help="Allow network access for the agent. This is useful for setting up the agent inside the sandbox environment."),
+    allow_network: bool = typer.Option(
+        False,
+        "--allow-network",
+        help="Allow network access for the agent. This is useful for setting up the agent inside the sandbox environment.",
+    ),
 ) -> None:
     """Run a binary as an AgeOS agent inside the hardened sandbox."""
 
@@ -244,13 +248,7 @@ def _remove_persistent_agent(root: Path, agent_id: str) -> None:
 
 
 def _is_persistent_agent_dir(path: Path) -> bool:
-    return (
-        path.is_dir()
-        and not path.is_symlink()
-        and _is_valid_agent_id(path.name)
-        and (path / "home").is_dir()
-        and not (path / "home").is_symlink()
-    )
+    return path.is_dir() and not path.is_symlink() and _is_valid_agent_id(path.name) and (path / "home").is_dir() and not (path / "home").is_symlink()
 
 
 def _is_valid_agent_id(agent_id: str) -> bool:
@@ -457,7 +455,7 @@ def _resolve_sandbox_paths(root_dir: Path | None, workdir: Path | None) -> Sandb
     if not resolved_root.exists() or not resolved_root.is_dir():
         raise typer.BadParameter(f"root directory not found: {root_dir}")
     _validate_writable_root(resolved_root)
-    resolved_workdir = (workdir.expanduser().resolve() if workdir is not None else resolved_root)
+    resolved_workdir = workdir.expanduser().resolve() if workdir is not None else resolved_root
     if not _is_relative_to(resolved_workdir, resolved_root):
         raise typer.BadParameter("--workdir must be inside --root-dir")
     relative_workdir = resolved_workdir.relative_to(resolved_root)

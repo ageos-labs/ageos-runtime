@@ -78,10 +78,7 @@ class ModelRegistry:
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "ModelRegistry":
         models = [ModelSpec(**item) for item in data.get("models", [])]
-        specialties = {
-            name: Specialty(name=name, **spec)
-            for name, spec in data.get("specialties", {}).items()
-        }
+        specialties = {name: Specialty(name=name, **spec) for name, spec in data.get("specialties", {}).items()}
         return cls(models=models, specialties=specialties)
 
     def resolve_specialty(
@@ -188,6 +185,7 @@ def _placement_rank(model: ModelSpec) -> int:
     if model.backend == "vllm":
         return 0
     return 1
+
 
 def _merge_config(base: dict[str, Any], override: dict[str, Any] | None) -> dict[str, Any]:
     if not override:

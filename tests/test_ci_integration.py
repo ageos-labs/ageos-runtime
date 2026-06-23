@@ -11,7 +11,6 @@ from pathlib import Path
 
 import pytest
 
-
 pytestmark = pytest.mark.integration
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -143,9 +142,7 @@ def _agent_id_from_output(output: str) -> str:
     raise AssertionError(f"agent_id line not found in output:\n{output}")
 
 
-def _run_basic_agent(
-    root_dir: Path, *, env: dict[str, str], force_new_sandbox: bool = False
-) -> subprocess.CompletedProcess[str]:
+def _run_basic_agent(root_dir: Path, *, env: dict[str, str], force_new_sandbox: bool = False) -> subprocess.CompletedProcess[str]:
     root_dir.mkdir(parents=True, exist_ok=True)
     agent_path = root_dir / "basic_agent.py"
     if not agent_path.exists():
@@ -223,9 +220,7 @@ def _openclaw_pnpm_install_command(openclaw_root: Path) -> list[str]:
     )
 
 
-def _openclaw_shell_command(
-    openclaw_root: Path, args: list[str], *, allow_network: bool = False, use_exec: bool = True
-) -> list[str]:
+def _openclaw_shell_command(openclaw_root: Path, args: list[str], *, allow_network: bool = False, use_exec: bool = True) -> list[str]:
     pnpm_args = ["pnpm"]
     if use_exec:
         pnpm_args.append("openclaw")
@@ -276,10 +271,7 @@ def _openclaw_toolchain_env_script() -> str:
 
 
 def _openclaw_toolchain_script() -> str:
-    node_url = (
-        f"https://nodejs.org/dist/v{OPENCLAW_NODE_VERSION}/"
-        f"node-v{OPENCLAW_NODE_VERSION}-linux-$node_arch.tar.xz"
-    )
+    node_url = f"https://nodejs.org/dist/v{OPENCLAW_NODE_VERSION}/node-v{OPENCLAW_NODE_VERSION}-linux-$node_arch.tar.xz"
     return "\n".join(
         [
             "set -eu",
@@ -417,36 +409,27 @@ def test_ubuntu_rootfs_overlay_environment_and_private_copyup(
         script=(
             "set -eu; "
             ". /etc/os-release; "
-            'test \"$VERSION_ID\" = \"26.04\"; '
-            'test \"$AGEOS_ROOTFS_RELEASE\" = \"ubuntu-26.04\"; '
-            'test \"$AGEOS_WORKSPACE\" = \"$HOME/workspace\"; '
-            'printf private > /etc/ageos-overfs-integration; '
+            'test "$VERSION_ID" = "26.04"; '
+            'test "$AGEOS_ROOTFS_RELEASE" = "ubuntu-26.04"; '
+            'test "$AGEOS_WORKSPACE" = "$HOME/workspace"; '
+            "printf private > /etc/ageos-overfs-integration; "
             "printf 'rootfs=%s\\n' \"$PRETTY_NAME\""
         ),
     )
-    second = _run_rootfs_shell(
+    _run_rootfs_shell(
         root_dir,
         env=integration_env,
-        script="set -eu; test \"$(cat /etc/ageos-overfs-integration)\" = private",
+        script='set -eu; test "$(cat /etc/ageos-overfs-integration)" = private',
     )
     agent_id = (root_dir / ".ageos" / "current-agent").read_text(encoding="utf-8").strip()
-    upper_file = (
-        root_dir
-        / ".ageos"
-        / "agents"
-        / agent_id
-        / "overlay"
-        / "upper"
-        / "etc"
-        / "ageos-overfs-integration"
-    )
+    upper_file = root_dir / ".ageos" / "agents" / agent_id / "overlay" / "upper" / "etc" / "ageos-overfs-integration"
 
     assert (root_dir / ".ageos" / "current-agent").read_text(encoding="utf-8").strip() == agent_id
     assert "Ubuntu 26.04" in first.stdout
     assert upper_file.read_text(encoding="utf-8") == "private"
     assert not marker.exists()
 
-    reset = _run_rootfs_shell(
+    _run_rootfs_shell(
         root_dir,
         env=integration_env,
         script="set -eu; test ! -e /etc/ageos-overfs-integration",
@@ -492,9 +475,7 @@ def test_sandbox_installs_openclaw_with_nvm_and_npm(
     assert "openclaw" in result.stdout.lower()
 
 
-def test_openclaw_setup_runs_with_network_allowed_sandbox(
-    integration_env: dict[str, str], openclaw_sandbox_state: tuple[Path, str]
-) -> None:
+def test_openclaw_setup_runs_with_network_allowed_sandbox(integration_env: dict[str, str], openclaw_sandbox_state: tuple[Path, str]) -> None:
     openclaw_root, agent_id = openclaw_sandbox_state
     state_root = openclaw_root / ".ageos"
     config_path = state_root / "agents" / agent_id / "home" / ".openclaw" / "openclaw.json"
@@ -509,9 +490,7 @@ def test_openclaw_setup_runs_with_network_allowed_sandbox(
     assert config_path.exists(), f"OpenClaw config was not created under {config_path.parent}"
 
 
-def test_openclaw_onboard_configures_local_inference(
-    integration_env: dict[str, str], openclaw_sandbox_state: tuple[Path, str]
-) -> None:
+def test_openclaw_onboard_configures_local_inference(integration_env: dict[str, str], openclaw_sandbox_state: tuple[Path, str]) -> None:
     openclaw_root, agent_id = openclaw_sandbox_state
     state_root = openclaw_root / ".ageos"
     config_path = state_root / "agents" / agent_id / "home" / ".openclaw" / "openclaw.json"
@@ -532,9 +511,7 @@ def test_openclaw_onboard_configures_local_inference(
     assert wizard.get("lastRunMode") == "local"
 
 
-def test_openclaw_reuses_configured_sandbox_without_reset(
-    integration_env: dict[str, str], openclaw_sandbox_state: tuple[Path, str]
-) -> None:
+def test_openclaw_reuses_configured_sandbox_without_reset(integration_env: dict[str, str], openclaw_sandbox_state: tuple[Path, str]) -> None:
     openclaw_root, agent_id = openclaw_sandbox_state
     state_root = openclaw_root / ".ageos"
     _run(_openclaw_onboard_command(openclaw_root), env=integration_env, timeout=240)

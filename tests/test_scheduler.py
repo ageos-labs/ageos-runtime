@@ -127,4 +127,3 @@ def test_missing_libageos_raises_actionable_error(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(native.Path, "exists", lambda self: False)
     with pytest.raises(LibAgeosError, match="libageos.so is required"):
         native._load_libageos()
-

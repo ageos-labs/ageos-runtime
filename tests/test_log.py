@@ -72,18 +72,14 @@ def test_extract_log_options_before_subcommand() -> None:
 
 
 def test_extract_log_file_option() -> None:
-    cleaned, level, log_file = extract_global_log_options(
-        ["run", "--binary", "agent", "--log-file", "/tmp/ageos.log", "--log-level", "debug"]
-    )
+    cleaned, level, log_file = extract_global_log_options(["run", "--binary", "agent", "--log-file", "/tmp/ageos.log", "--log-level", "debug"])
     assert cleaned == ["run", "--binary", "agent"]
     assert level == "debug"
     assert log_file == "/tmp/ageos.log"
 
 
 def test_extract_preserves_args_after_double_dash() -> None:
-    cleaned, level, log_file = extract_global_log_options(
-        ["run", "--binary", "agent", "--", "tool", "--log-level", "debug"]
-    )
+    cleaned, level, log_file = extract_global_log_options(["run", "--binary", "agent", "--", "tool", "--log-level", "debug"])
     assert cleaned == ["run", "--binary", "agent", "--", "tool", "--log-level", "debug"]
     assert level is None
     assert log_file is None
@@ -145,8 +141,6 @@ def test_log_file_sets_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
 
 def test_log_file_from_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import os
-
     log_path = tmp_path / "from-env.log"
     monkeypatch.setenv("AGEOS_LOG_FILE", str(log_path))
     ageos_log.configure_logging("info")
@@ -165,9 +159,7 @@ def test_log_file_creates_parent_directories(tmp_path: Path) -> None:
 
 
 def test_extract_log_file_equals_form() -> None:
-    cleaned, level, log_file = extract_global_log_options(
-        ["serve", "--log-file=/tmp/custom.log", "--log-level=debug"]
-    )
+    cleaned, level, log_file = extract_global_log_options(["serve", "--log-file=/tmp/custom.log", "--log-level=debug"])
     assert cleaned == ["serve"]
     assert level == "debug"
     assert log_file == "/tmp/custom.log"

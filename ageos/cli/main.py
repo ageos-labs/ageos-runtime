@@ -122,11 +122,7 @@ def models_list(
     tier = select_tier(hardware)
     selected = _selected_model_name(registry, speciality, tier.order, hardware)
     console = Console()
-    console.print(
-        f"Machine tier: [bold]{tier.name}[/bold] "
-        f"(RAM={hardware.ram_bytes // (1024**3)}GiB, "
-        f"VRAM={hardware.vram_bytes // (1024**3)}GiB)"
-    )
+    console.print(f"Machine tier: [bold]{tier.name}[/bold] (RAM={hardware.ram_bytes // (1024**3)}GiB, VRAM={hardware.vram_bytes // (1024**3)}GiB)")
     if selected is not None:
         console.print(f"{speciality} -> [bold green]{selected}[/bold green]")
 
@@ -226,10 +222,7 @@ def _choose_base_model(speciality: str) -> None:
     choice = _prompt_choice(len(candidates), default_index)
     model = candidates[choice - 1]
     _write_speciality_model_override(speciality, model.name, model.capability)
-    console.print(
-        f"Saved {speciality} -> [bold green]{model.name}[/bold green] "
-        f"in {_user_models_config_path()}"
-    )
+    console.print(f"Saved {speciality} -> [bold green]{model.name}[/bold green] in {_user_models_config_path()}")
 
 
 def _prompt_choice(max_choice: int, default: int) -> int:
@@ -295,9 +288,7 @@ def _user_models_config_path() -> Path:
 def _deny_in_sandbox(command: str) -> None:
     if is_sandboxed():
         log_error("command denied inside sandbox", command)
-        raise typer.BadParameter(
-            f"{command} is only available to the real host user, not from inside an AgeOS sandbox"
-        )
+        raise typer.BadParameter(f"{command} is only available to the real host user, not from inside an AgeOS sandbox")
 
 
 def run_cli() -> None:

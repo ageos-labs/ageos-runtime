@@ -21,7 +21,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+  "pre-commit>=3.7",
   "pytest-cov>=5.0",
+  "ruff>=0.4",
 ]
 vllm = [
   "vllm>=0.5",
@@ -76,3 +78,11 @@ pythonpath = ["."]
 markers = [
   "integration: tests that require a built AgeOS runtime and local inference backend",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 150
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I"]
+ignore = []

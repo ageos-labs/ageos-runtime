@@ -1,5 +1,5 @@
-from unittest.mock import patch
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from ageos.cli import prompt
 

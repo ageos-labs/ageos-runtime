@@ -6,8 +6,34 @@ on:
     branches: [main]
 
 jobs:
+  lint:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python linter
+        run: pip install "ruff>=0.4"
+
+      - name: Run Python lint (ruff)
+        run: |
+          ruff check .
+          ruff format --check .
+
+      - name: Install C formatter
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends clang-format
+
+      - name: Run C lint (clang-format)
+        run: find libageos -name '*.c' -o -name '*.h' | xargs clang-format --dry-run --Werror
+
   unit-tests:
     runs-on: ubuntu-22.04
+    needs: lint
     steps:
       - uses: actions/checkout@v4
 

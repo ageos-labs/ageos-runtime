@@ -34,11 +34,7 @@ def build_repair_messages(example: dict[str, Any], original_text: str, invalid_o
     return [
         {
             "role": "system",
-            "content": (
-                "Repair the assistant output into valid JSON only. "
-                "It must match this example structure and value types:\n\n"
-                f"{schema}"
-            ),
+            "content": (f"Repair the assistant output into valid JSON only. It must match this example structure and value types:\n\n{schema}"),
         },
         {
             "role": "user",

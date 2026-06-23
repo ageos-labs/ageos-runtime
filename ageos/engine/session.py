@@ -13,7 +13,6 @@ from ageos.engine.registry import ModelRegistry, ModelSpec
 from ageos.engine.selector import select_tier
 from ageos.log import log_debug, log_info
 
-
 DEFAULT_MAX_OUTPUT_TOKENS = 512
 SANDBOX_INFERENCE_TIMEOUT_SECONDS = 120.0
 
@@ -141,9 +140,7 @@ def _sandbox_inference_base_url() -> str:
     host = os.environ.get("AGEOS_SANDBOX_INFERENCE_HOST")
     port = os.environ.get("AGEOS_SANDBOX_INFERENCE_PORT")
     if not host or not port:
-        raise RuntimeError(
-            "AGEOS_SANDBOX_INFERENCE_HOST and AGEOS_SANDBOX_INFERENCE_PORT must be set inside the sandbox"
-        )
+        raise RuntimeError("AGEOS_SANDBOX_INFERENCE_HOST and AGEOS_SANDBOX_INFERENCE_PORT must be set inside the sandbox")
     return f"http://{host}:{_parse_port(port)}"
 
 
@@ -201,6 +198,7 @@ def _parse_port(value: str) -> int:
     if port <= 0 or port > 65535:
         raise RuntimeError("AGEOS_SANDBOX_INFERENCE_PORT must be between 1 and 65535")
     return port
+
 
 def _limit_gb(limit_bytes: object, hardware_bytes: int) -> float:
     limit = _int_or_zero(limit_bytes)
