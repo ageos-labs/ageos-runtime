@@ -30,3 +30,16 @@ executable(
   link_with: libageos,
   install: true,
 )
+
+libageos_tests = executable(
+  'libageos-tests',
+  ['tests/test_libageos.c'],
+  include_directories: include_dir,
+  link_with: libageos,
+)
+
+test(
+  'libageos-tests',
+  libageos_tests,
+  env: ['LD_LIBRARY_PATH=' + meson.current_build_dir()],
+)
