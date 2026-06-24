@@ -30,3 +30,30 @@ executable(
   link_with: libageos,
   install: true,
 )
+
+native_tests = [
+  {
+    'name': 'test-log',
+    'sources': ['tests/test_log.c', 'log.c'],
+  },
+  {
+    'name': 'test-hw-detect',
+    'sources': ['tests/test_hw_detect.c', 'hw_detect.c'],
+    'link_args': [
+      '-Wl,--wrap=fopen',
+      '-Wl,--wrap=sysconf',
+      '-Wl,--wrap=popen',
+      '-Wl,--wrap=pclose',
+    ],
+  },
+]
+
+foreach native_test : native_tests
+  exe = executable(
+    native_test['name'],
+    native_test['sources'],
+    include_directories: include_dir,
+    link_args: native_test.get('link_args', []),
+  )
+  test(native_test['name'], exe)
+endforeach

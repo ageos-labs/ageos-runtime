@@ -127,3 +127,58 @@ def test_missing_libageos_raises_actionable_error(monkeypatch: pytest.MonkeyPatc
     monkeypatch.setattr(native.Path, "exists", lambda self: False)
     with pytest.raises(LibAgeosError, match="libageos.so is required"):
         native._load_libageos()
+
+
+def test_scheduler_client_registers_and_deregisters_agent(monkeypatch: pytest.MonkeyPatch) -> None:
+    import ageos.node.client as client_module
+
+    native = FakeNative()
+    monkeypatch.setattr(client_module.os, "getpid", lambda: 4321)
+    monkeypatch.setattr(client_module.uuid, "uuid4", lambda: type("UUID", (), {"hex": "abcdef123456"})())
+
+    client = client_module.SchedulerClient(native=native)
+    agent_id = client.register_agent("/bin/agent", 5, "default-instruct")
+    client.deregister_agent(agent_id)
+
+    assert agent_id == "agt-abcdef1234"
+    assert native.registered == [("agt-abcdef1234", 4321, "/bin/agent", 5, "default-instruct")]
+    assert native.deregistered == ["agt-abcdef1234"]
+
+
+def test_scheduler_client_telemetry_and_invalid_limits(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import ageos.node.client as client_module
+
+    client = client_module.SchedulerClient(native=FakeNative(snapshot={"limits": []}))
+    assert client.telemetry_snapshot()["limits"] == []
+    assert client.resource_limits() == {}
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("AGEOS_MODELS_CONFIG", str(tmp_path / "models.yaml"))
+    (tmp_path / "models.yaml").write_text("scheduler:\n  ram_limit_gb: nope\n  vram_limit_gb: 0\n", encoding="utf-8")
+    assert client_module._configured_limits() == (None, None)
+
+
+class FakeNative:
+    def __init__(self, snapshot: dict[str, object] | None = None) -> None:
+        self._snapshot = snapshot or {
+            "hardware": {},
+            "limits": {"ram_bytes": 1},
+            "memory_pressure": "available",
+            "agents": [],
+            "models": [],
+            "queue": [],
+        }
+        self.registered: list[tuple[str, int, str, int, str | None]] = []
+        self.deregistered: list[str] = []
+
+    def configure_limits(self, *_args: object) -> None:
+        return None
+
+    def register_agent(self, agent_id: str, pid: int, binary: str, niceness: int, specialty: str | None) -> None:
+        self.registered.append((agent_id, pid, binary, niceness, specialty))
+
+    def deregister_agent(self, agent_id: str) -> None:
+        self.deregistered.append(agent_id)
+
+    def snapshot(self) -> dict[str, object]:
+        return self._snapshot

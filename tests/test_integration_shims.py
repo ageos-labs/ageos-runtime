@@ -52,6 +52,26 @@ def test_langchain_wrapper_uses_native_session(monkeypatch) -> None:
         ]
     )
     assert result.generations[0].message.content == "native"
+    assert model._llm_type == "ageos"
+
+
+def test_langchain_wrapper_requires_optional_dependency(monkeypatch) -> None:
+    from ageos.integrations import langchain as langchain_module
+
+    monkeypatch.setattr(langchain_module, "BaseChatModel", object)
+
+    with pytest.raises(ImportError, match="install ageos\\[langchain\\]"):
+        langchain_module.AgeosChatModel()
+
+
+def test_langchain_convert_message_defaults_to_assistant_role(monkeypatch) -> None:
+    from ageos.integrations import langchain as langchain_module
+
+    monkeypatch.setattr(langchain_module, "HumanMessage", FakeHumanMessage)
+    monkeypatch.setattr(langchain_module, "SystemMessage", FakeSystemMessage)
+
+    assistant_like = type("AssistantMessage", (), {"content": "done"})()
+    assert langchain_module._convert_message(assistant_like) == {"role": "assistant", "content": "done"}
 
 
 class FakeHumanMessage:

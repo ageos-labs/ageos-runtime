@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from ageos.engine.registry import ModelSpec
-from ageos.engine.session import EngineSession
+from ageos.engine.session import EngineSession, ResolvedSession
 from ageos.native import HardwareInfo
 
 GPU_MODEL = ModelSpec(
@@ -130,6 +130,109 @@ def test_engine_session_requires_sandbox_inference_endpoint(monkeypatch) -> None
     with pytest.raises(RuntimeError, match="AGEOS_SANDBOX_INFERENCE_HOST"):
         with EngineSession("default-instruct"):
             pass
+
+
+def test_engine_session_requires_matching_model(monkeypatch) -> None:
+    _patch_session_dependencies(monkeypatch, [])
+
+    with pytest.raises(RuntimeError, match="no model matches specialty"):
+        with EngineSession("default-instruct", scheduler=FakeScheduler()):
+            pass
+
+
+def test_engine_session_chat_requires_started_session() -> None:
+    with pytest.raises(RuntimeError, match="engine session is not started"):
+        EngineSession("default-instruct").chat([{"role": "user", "content": "hi"}])
+
+
+def test_engine_session_chat_requires_scheduler_once_resolved() -> None:
+    session = EngineSession("default-instruct")
+    session.resolved = ResolvedSession(model=CPU_MODEL, model_path="/models/cpu-model")
+
+    with pytest.raises(RuntimeError, match="scheduler is not started"):
+        session.chat([{"role": "user", "content": "hi"}])
+
+
+def test_engine_session_embeddings_require_native_support() -> None:
+    with pytest.raises(RuntimeError, match="native embeddings are not implemented"):
+        EngineSession("default-instruct").embeddings(["hi"])
+
+
+def test_engine_session_reports_status_callback() -> None:
+    messages: list[str] = []
+    EngineSession("default-instruct", status_callback=messages.append)._status("warming")
+    assert messages == ["warming"]
+
+
+def test_engine_session_sandbox_embeddings(monkeypatch) -> None:
+    import ageos.engine.session as session_module
+
+    monkeypatch.setenv("AGEOS_SANDBOX", "1")
+    monkeypatch.setenv("AGEOS_SANDBOX_INFERENCE_HOST", "127.0.0.1")
+    monkeypatch.setenv("AGEOS_SANDBOX_INFERENCE_PORT", "8123")
+    monkeypatch.setattr(session_module.requests, "post", lambda *args, **kwargs: FakeResponse({"data": [{"embedding": [1.0, 2.0]}]}))
+
+    with EngineSession("default-instruct") as session:
+        assert session.embeddings(["hi"]) == [[1.0, 2.0]]
+
+
+def test_engine_session_rejects_invalid_sandbox_responses(monkeypatch) -> None:
+    import ageos.engine.session as session_module
+
+    monkeypatch.setenv("AGEOS_SANDBOX", "1")
+    monkeypatch.setenv("AGEOS_SANDBOX_INFERENCE_HOST", "127.0.0.1")
+    monkeypatch.setenv("AGEOS_SANDBOX_INFERENCE_PORT", "8123")
+
+    monkeypatch.setattr(session_module.requests, "post", lambda *args, **kwargs: FakeResponse({"choices": []}))
+    with EngineSession("default-instruct") as session:
+        with pytest.raises(RuntimeError, match="invalid chat completion response"):
+            session.chat([{"role": "user", "content": "hi"}])
+
+    monkeypatch.setattr(session_module.requests, "post", lambda *args, **kwargs: FakeResponse({"data": ["bad"]}))
+    with EngineSession("default-instruct") as session:
+        with pytest.raises(RuntimeError, match="invalid embeddings response"):
+            session.embeddings(["hi"])
+
+    monkeypatch.setattr(session_module.requests, "post", lambda *args, **kwargs: FakeResponse([]))
+    with EngineSession("default-instruct") as session:
+        with pytest.raises(RuntimeError, match="non-object JSON response"):
+            session.chat([{"role": "user", "content": "hi"}])
+
+
+def test_engine_session_wraps_sandbox_request_errors(monkeypatch) -> None:
+    import ageos.engine.session as session_module
+
+    monkeypatch.setenv("AGEOS_SANDBOX", "1")
+    monkeypatch.setenv("AGEOS_SANDBOX_INFERENCE_HOST", "127.0.0.1")
+    monkeypatch.setenv("AGEOS_SANDBOX_INFERENCE_PORT", "8123")
+
+    def raise_request(*_args: object, **_kwargs: object) -> FakeResponse:
+        raise session_module.requests.RequestException("boom")
+
+    monkeypatch.setattr(session_module.requests, "post", raise_request)
+
+    with EngineSession("default-instruct") as session:
+        with pytest.raises(RuntimeError, match="sandbox inference request failed"):
+            session.chat([{"role": "user", "content": "hi"}])
+
+
+def test_engine_session_validates_environment_settings(monkeypatch) -> None:
+    import ageos.engine.session as session_module
+
+    with pytest.raises(RuntimeError, match="must be an integer"):
+        session_module._parse_port("bad")
+    with pytest.raises(RuntimeError, match="between 1 and 65535"):
+        session_module._parse_port("70000")
+
+    monkeypatch.setenv("AGEOS_MAX_OUTPUT_TOKENS", "bad")
+    with pytest.raises(RuntimeError, match="must be an integer"):
+        session_module.default_max_output_tokens()
+
+    monkeypatch.setenv("AGEOS_MAX_OUTPUT_TOKENS", "0")
+    with pytest.raises(RuntimeError, match="greater than zero"):
+        session_module.default_max_output_tokens()
+
+    assert session_module._int_or_zero("bad") == 0
 
 
 class FakeRegistry:

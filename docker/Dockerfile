@@ -60,7 +60,7 @@ FROM source AS unit-test
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install ".[dev]" && \
     rm -rf libageos/build && \
-    meson setup libageos/build libageos --prefix=/usr/local && \
+    meson setup libageos/build libageos --prefix=/usr/local -Db_coverage=true && \
     meson compile -C libageos/build
 
 CMD ["scripts/ci/run-unit-tests.sh"]
