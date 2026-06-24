@@ -238,6 +238,97 @@ static int setup_loopback(void) {
     return 0;
 }
 
+static int write_all(int fd, const char *data, size_t len);
+
+static int mount_private_tmpfs_if_dir(const char *path, const char *options) {
+    struct stat st;
+    if (stat(path, &st) != 0) {
+        return errno == ENOENT ? 0 : -errno;
+    }
+    if (!S_ISDIR(st.st_mode)) {
+        return 0;
+    }
+    return ageos_overfs_mount_tmpfs_at(path, options);
+}
+
+static int read_text_file_limited(const char *path, char *buffer, size_t buffer_size, size_t *content_len) {
+    if (buffer_size == 0) {
+        return -EINVAL;
+    }
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        return -errno;
+    }
+    ssize_t read_count = read(fd, buffer, buffer_size - 1);
+    int err = errno;
+    close(fd);
+    if (read_count < 0) {
+        return -err;
+    }
+    buffer[read_count] = '\0';
+    *content_len = (size_t)read_count;
+    return 0;
+}
+
+static int write_text_file_exact(const char *path, const char *content, size_t content_len, mode_t mode) {
+    int fd = open(path, O_WRONLY | O_CREAT | O_TRUNC | O_CLOEXEC, mode);
+    if (fd < 0) {
+        return -errno;
+    }
+    int rc = write_all(fd, content, content_len);
+    int err = errno;
+    close(fd);
+    return rc == 0 ? 0 : -err;
+}
+
+static int parent_dir(const char *path, char *buffer, size_t buffer_size) {
+    int written = snprintf(buffer, buffer_size, "%s", path);
+    if (written < 0 || (size_t)written >= buffer_size) {
+        return -ENAMETOOLONG;
+    }
+    char *slash = strrchr(buffer, '/');
+    if (slash == NULL) {
+        return -EINVAL;
+    }
+    if (slash == buffer) {
+        slash[1] = '\0';
+    } else {
+        *slash = '\0';
+    }
+    return 0;
+}
+
+static int hide_host_runtime_sockets(void) {
+    char resolv_path[PATH_MAX];
+    char resolv_content[8192];
+    size_t resolv_len = 0;
+    int preserve_resolv = 0;
+    if (realpath("/etc/resolv.conf", resolv_path) != NULL && strncmp(resolv_path, "/run/", 5) == 0) {
+        if (read_text_file_limited("/etc/resolv.conf", resolv_content, sizeof(resolv_content), &resolv_len) == 0) {
+            preserve_resolv = 1;
+        }
+    }
+
+    int rc = mount_private_tmpfs_if_dir("/run", "mode=755,size=16m");
+    if (rc != 0) {
+        return rc;
+    }
+    if (!preserve_resolv) {
+        return 0;
+    }
+
+    char dir_path[PATH_MAX];
+    rc = parent_dir(resolv_path, dir_path, sizeof(dir_path));
+    if (rc != 0) {
+        return rc;
+    }
+    rc = ageos_overfs_mkdir_p(dir_path, 0755);
+    if (rc != 0) {
+        return rc;
+    }
+    return write_text_file_exact(resolv_path, resolv_content, resolv_len, 0644);
+}
+
 static int write_all(int fd, const char *data, size_t len) {
     size_t offset = 0;
     while (offset < len) {
@@ -496,6 +587,65 @@ static int write_file(const char *path, const char *value) {
     close(fd);
     if (written != (ssize_t)len) {
         return -err;
+    }
+    return 0;
+}
+
+static int read_sync_byte(int fd) {
+    char byte = 0;
+    for (;;) {
+        ssize_t received = read(fd, &byte, 1);
+        if (received < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return -errno;
+        }
+        if (received == 0) {
+            return -EPIPE;
+        }
+        return 0;
+    }
+}
+
+static int write_sync_byte(int fd) {
+    return write_all(fd, "x", 1);
+}
+
+static int write_child_proc_file(pid_t pid, const char *name, const char *value) {
+    char path[PATH_MAX];
+    int written = snprintf(path, sizeof(path), "/proc/%lld/%s", (long long)pid, name);
+    if (written < 0 || (size_t)written >= sizeof(path)) {
+        return -ENAMETOOLONG;
+    }
+    return write_file(path, value);
+}
+
+static int map_child_user_namespace(
+    pid_t pid,
+    uid_t host_uid,
+    gid_t host_gid,
+    uid_t agent_uid,
+    gid_t agent_gid) {
+    char map[128];
+    snprintf(map, sizeof(map), "%u %u 1\n", (unsigned int)agent_uid, (unsigned int)host_uid);
+    int rc = write_child_proc_file(pid, "uid_map", map);
+    if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to write child uid map", "pid=%lld map=%s err=%s", (long long)pid, map, strerror(-rc));
+        return rc;
+    }
+
+    rc = write_child_proc_file(pid, "setgroups", "deny\n");
+    if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to disable child setgroups", "pid=%lld err=%s", (long long)pid, strerror(-rc));
+        return rc;
+    }
+
+    snprintf(map, sizeof(map), "%u %u 1\n", (unsigned int)agent_gid, (unsigned int)host_gid);
+    rc = write_child_proc_file(pid, "gid_map", map);
+    if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to write child gid map", "pid=%lld map=%s err=%s", (long long)pid, map, strerror(-rc));
+        return rc;
     }
     return 0;
 }
@@ -864,30 +1014,37 @@ static int setup_sandbox_home(
     }
     int rc = mkdir_if_missing(ageos_dir, 0700);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to prepare sandbox ageos dir", "path=%s err=%s", ageos_dir, strerror(-rc));
         return rc;
     }
     rc = mkdir_if_missing(agents_dir, 0700);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to prepare sandbox agents dir", "path=%s err=%s", agents_dir, strerror(-rc));
         return rc;
     }
     rc = mkdir_if_missing(agent_dir, 0700);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to prepare sandbox agent dir", "path=%s err=%s", agent_dir, strerror(-rc));
         return rc;
     }
     rc = mkdir_if_missing(identity_dir, 0700);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to prepare sandbox identity dir", "path=%s err=%s", identity_dir, strerror(-rc));
         return rc;
     }
     rc = mkdir_if_missing(identity_agent_dir, 0700);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to prepare sandbox identity agent dir", "path=%s err=%s", identity_agent_dir, strerror(-rc));
         return rc;
     }
     rc = mkdir_if_missing(backing_home_path, 0700);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to prepare sandbox backing home", "path=%s err=%s", backing_home_path, strerror(-rc));
         return rc;
     }
     rc = seed_sandbox_home_profiles(backing_home_path);
     if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to seed sandbox home profiles", "path=%s err=%s", backing_home_path, strerror(-rc));
         return rc;
     }
 
@@ -1045,7 +1202,7 @@ static int enter_sandbox_root(const char *target_root, const char *workspace_cwd
     return 0;
 }
 
-static int setup_user_namespace(uid_t agent_uid, gid_t agent_gid, int allow_network) {
+static int setup_user_namespace(uid_t agent_uid, gid_t agent_gid, int allow_network, int ready_fd, int continue_fd) {
     uid_t uid = getuid();
     gid_t gid = getgid();
     AGEOS_LOG_DEBUG(
@@ -1062,30 +1219,33 @@ static int setup_user_namespace(uid_t agent_uid, gid_t agent_gid, int allow_netw
     }
     log_capability_state("after CLONE_NEWUSER");
 
+    int rc = write_sync_byte(ready_fd);
+    if (rc != 0) {
+        AGEOS_LOG_ERROR("failed to signal user namespace readiness", "%s", strerror(-rc));
+        return rc;
+    }
+    rc = read_sync_byte(continue_fd);
+    if (rc != 0) {
+        AGEOS_LOG_ERROR("failed waiting for user namespace mapping", "%s", strerror(-rc));
+        return rc;
+    }
+
+    log_capability_state("after uid/gid map");
+    if (setresgid(agent_gid, agent_gid, agent_gid) != 0) {
+        AGEOS_LOG_ERROR("failed to enter sandbox gid", "gid=%u err=%s", (unsigned int)agent_gid, strerror(errno));
+        return -errno;
+    }
+    if (setresuid(agent_uid, agent_uid, agent_uid) != 0) {
+        AGEOS_LOG_ERROR("failed to enter sandbox uid", "uid=%u err=%s", (unsigned int)agent_uid, strerror(errno));
+        return -errno;
+    }
+    log_capability_state("after sandbox uid/gid switch");
     if (allow_network) {
         int cap_rc = grant_net_raw_capability();
         if (cap_rc != 0) {
             return cap_rc;
         }
     }
-
-    char map[128];
-    snprintf(map, sizeof(map), "%u %u 1\n", (unsigned int)agent_uid, (unsigned int)uid);
-    int rc = write_file("/proc/self/uid_map", map);
-    if (rc != 0) {
-        AGEOS_LOG_ERROR("failed to write uid map", "map=%s err=%s", map, strerror(-rc));
-        return rc;
-    }
-
-    write_file("/proc/self/setgroups", "deny\n");
-    snprintf(map, sizeof(map), "%u %u 1\n", (unsigned int)agent_gid, (unsigned int)gid);
-    rc = write_file("/proc/self/gid_map", map);
-    if (rc != 0) {
-        AGEOS_LOG_ERROR("failed to write gid map", "map=%s err=%s", map, strerror(-rc));
-        return rc;
-    }
-
-    log_capability_state("after uid/gid map");
     AGEOS_LOG_DEBUG(
         "sandbox user namespace ready",
         "uid=%u gid=%u allow_network=%d",
@@ -1129,6 +1289,11 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
     if (sandbox_root == NULL) {
         return -errno;
     }
+    if (chown(sandbox_root, host_uid, host_gid) != 0) {
+        int err = errno;
+        cleanup_sandbox_root(sandbox_root);
+        return -err;
+    }
     int inference_proxy_enabled =
         cfg->isolate_network &&
         cfg->inference_host != NULL &&
@@ -1165,9 +1330,39 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
         }
         close(inference_control[0]);
     }
+    int userns_ready[2] = {-1, -1};
+    int userns_continue[2] = {-1, -1};
+    if (pipe(userns_ready) != 0 || pipe(userns_continue) != 0) {
+        int err = errno;
+        if (userns_ready[0] >= 0) {
+            close(userns_ready[0]);
+        }
+        if (userns_ready[1] >= 0) {
+            close(userns_ready[1]);
+        }
+        if (userns_continue[0] >= 0) {
+            close(userns_continue[0]);
+        }
+        if (userns_continue[1] >= 0) {
+            close(userns_continue[1]);
+        }
+        if (inference_control[1] >= 0) {
+            close(inference_control[1]);
+        }
+        if (host_proxy_pid > 0) {
+            kill(host_proxy_pid, SIGTERM);
+            waitpid(host_proxy_pid, NULL, 0);
+        }
+        cleanup_sandbox_root(sandbox_root);
+        return -err;
+    }
     pid_t pid = fork();
     if (pid < 0) {
         int err = errno;
+        close(userns_ready[0]);
+        close(userns_ready[1]);
+        close(userns_continue[0]);
+        close(userns_continue[1]);
         if (inference_control[1] >= 0) {
             close(inference_control[1]);
         }
@@ -1179,6 +1374,8 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
         return -err;
     }
     if (pid == 0) {
+        close(userns_ready[0]);
+        close(userns_continue[1]);
         const char *existing_path = getenv("PATH");
         char path_buf[4096];
         if (existing_path != NULL && existing_path[0] != '\0') {
@@ -1196,7 +1393,14 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
         }
         ageos_apply_cgroup_limits(cfg);
         AGEOS_LOG_DEBUG("starting sandbox child setup", "pid=%lld", (long long)getpid());
-        int userns_rc = setup_user_namespace(agent_uid, agent_gid, !cfg->isolate_network);
+        int userns_rc = setup_user_namespace(
+            agent_uid,
+            agent_gid,
+            !cfg->isolate_network,
+            userns_ready[1],
+            userns_continue[0]);
+        close(userns_ready[1]);
+        close(userns_continue[0]);
         if (userns_rc != 0) {
             AGEOS_LOG_ERROR("failed to create sandbox user namespace", "%s", strerror(-userns_rc));
             _exit(126);
@@ -1219,6 +1423,11 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
             _exit(126);
         }
         AGEOS_LOG_DEBUG("sandbox namespaces ready", "isolate_network=%d", cfg->isolate_network);
+        int runtime_socket_rc = hide_host_runtime_sockets();
+        if (runtime_socket_rc != 0) {
+            AGEOS_LOG_ERROR("failed to hide host runtime sockets", "%s", strerror(-runtime_socket_rc));
+            _exit(126);
+        }
         if (cfg->isolate_network) {
             int loopback_rc = setup_loopback();
             if (loopback_rc != 0) {
@@ -1312,6 +1521,31 @@ int ageos_sandbox_run(const ageos_sandbox_config *cfg) {
         execv(cfg->binary, cfg->argv);
         AGEOS_LOG_ERROR("failed to exec sandbox binary", "binary=%s err=%s", cfg->binary, strerror(errno));
         _exit(127);
+    }
+    close(userns_ready[1]);
+    close(userns_continue[0]);
+    int userns_parent_rc = read_sync_byte(userns_ready[0]);
+    if (userns_parent_rc == 0) {
+        userns_parent_rc = map_child_user_namespace(pid, host_uid, host_gid, agent_uid, agent_gid);
+    }
+    if (userns_parent_rc == 0) {
+        userns_parent_rc = write_sync_byte(userns_continue[1]);
+    }
+    close(userns_ready[0]);
+    close(userns_continue[1]);
+    if (userns_parent_rc != 0) {
+        AGEOS_LOG_ERROR("failed to map sandbox user namespace", "%s", strerror(-userns_parent_rc));
+        kill(pid, SIGTERM);
+        waitpid(pid, NULL, 0);
+        if (inference_control[1] >= 0) {
+            close(inference_control[1]);
+        }
+        if (host_proxy_pid > 0) {
+            kill(host_proxy_pid, SIGTERM);
+            waitpid(host_proxy_pid, NULL, 0);
+        }
+        cleanup_sandbox_root(sandbox_root);
+        return 126;
     }
     if (inference_control[1] >= 0) {
         close(inference_control[1]);

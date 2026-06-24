@@ -102,6 +102,19 @@ def _load_libageos() -> ctypes.CDLL:
     )
 
 
+def _sandbox_helper() -> str:
+    configured = os.environ.get("AGEOS_SANDBOX_HELPER")
+    if configured:
+        return configured
+    found = shutil.which("ageos-sandbox")
+    if found:
+        return found
+    default = Path("/usr/local/bin/ageos-sandbox")
+    if default.exists():
+        return str(default)
+    raise LibAgeosError("ageos-sandbox helper is required for sandbox execution. Run ./scripts/build.sh.")
+
+
 def _bytes(value: str | None) -> bytes | None:
     if value is None:
         return None
@@ -531,6 +544,55 @@ class NativeScheduler:
             self.lib.ageos_scheduler_free_string(pointer)  # type: ignore[union-attr]
 
     def run_sandbox(
+        self,
+        binary: str,
+        argv: list[str],
+        *,
+        resource_niceness: int,
+        memory_max: int,
+        cpu_percent: int,
+        workdir: str,
+        isolate_network: bool,
+        root_dir: str | None = None,
+        rootfs_dir: str | None = None,
+        overlay_upper_dir: str | None = None,
+        overlay_work_dir: str | None = None,
+        inference_host: str | None = None,
+        inference_port: int = 0,
+        sandbox_inference_port: int = 0,
+    ) -> int:
+        command = [
+            _sandbox_helper(),
+            "--memory",
+            str(int(memory_max)),
+            "--cpu",
+            str(int(cpu_percent)),
+            "--niceness",
+            str(int(resource_niceness)),
+            "--workdir",
+            workdir,
+        ]
+        if root_dir is not None:
+            command.extend(["--root-dir", root_dir])
+        if rootfs_dir is not None:
+            command.extend(["--rootfs-dir", rootfs_dir])
+        if overlay_upper_dir is not None:
+            command.extend(["--overlay-upper-dir", overlay_upper_dir])
+        if overlay_work_dir is not None:
+            command.extend(["--overlay-work-dir", overlay_work_dir])
+        if isolate_network:
+            command.append("--isolate-network")
+        if inference_host:
+            command.extend(["--inference-host", inference_host])
+        if inference_port:
+            command.extend(["--inference-port", str(int(inference_port))])
+        if sandbox_inference_port:
+            command.extend(["--sandbox-inference-port", str(int(sandbox_inference_port))])
+        command.append("--")
+        command.extend(argv if argv else [binary])
+        return subprocess.call(command)
+
+    def run_sandbox_in_process(
         self,
         binary: str,
         argv: list[str],

@@ -51,6 +51,8 @@ int main(int argc, char **argv) {
             cfg.memory_max = parse_bytes(argv[++i]);
         } else if (strcmp(argv[i], "--cpu") == 0 && i + 1 < argc) {
             cfg.cpu_percent = (uint32_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--niceness") == 0 && i + 1 < argc) {
+            cfg.resource_niceness = (int)strtol(argv[++i], NULL, 10);
         } else if (strcmp(argv[i], "--workdir") == 0 && i + 1 < argc) {
             cfg.workdir = argv[++i];
         } else if (strcmp(argv[i], "--root-dir") == 0 && i + 1 < argc) {
@@ -63,6 +65,12 @@ int main(int argc, char **argv) {
             cfg.overlay_work_dir = argv[++i];
         } else if (strcmp(argv[i], "--isolate-network") == 0) {
             cfg.isolate_network = 1;
+        } else if (strcmp(argv[i], "--inference-host") == 0 && i + 1 < argc) {
+            cfg.inference_host = argv[++i];
+        } else if (strcmp(argv[i], "--inference-port") == 0 && i + 1 < argc) {
+            cfg.inference_port = (uint32_t)strtoul(argv[++i], NULL, 10);
+        } else if (strcmp(argv[i], "--sandbox-inference-port") == 0 && i + 1 < argc) {
+            cfg.sandbox_inference_port = (uint32_t)strtoul(argv[++i], NULL, 10);
         } else if (strcmp(argv[i], "--log-level") == 0 && i + 1 < argc) {
             ageos_log_set_level(argv[++i]);
         } else {
@@ -74,7 +82,7 @@ int main(int argc, char **argv) {
         AGEOS_LOG_ERROR("missing sandbox command", "");
         AGEOS_LOG_INFO(
             "ageos-sandbox usage",
-            "[--memory 2G] [--cpu 50] [--workdir DIR] [--root-dir DIR] [--rootfs-dir DIR] [--overlay-upper-dir DIR] [--overlay-work-dir DIR] [--isolate-network] [--log-level LEVEL] -- COMMAND [ARGS...]");
+            "[--memory 2G] [--cpu 50] [--niceness N] [--workdir DIR] [--root-dir DIR] [--rootfs-dir DIR] [--overlay-upper-dir DIR] [--overlay-work-dir DIR] [--isolate-network] [--inference-host HOST] [--inference-port PORT] [--sandbox-inference-port PORT] [--log-level LEVEL] -- COMMAND [ARGS...]");
         return 2;
     }
     cfg.binary = argv[i];

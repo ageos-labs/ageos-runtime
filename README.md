@@ -100,6 +100,8 @@ When `--root-dir` is provided, non-system binaries must live inside that root an
 
 Installed sandboxes run over an Ubuntu 26.04 root filesystem using a per-agent overlay. The Ubuntu lower filesystem stays unchanged; writes outside the workspace copy up into `.ageos/agents/<agent-id>/overlay/upper` and persist with that agent. Use `--force-new-sandbox` or `--overwrite-sandbox` to discard the persistent home and private overlay for the current workspace.
 
+For implementation details, security assumptions, and known gaps, see [`docs/sandbox.md`](docs/sandbox.md).
+
 ## OpenClaw Example
 
 OpenClaw can be installed entirely from inside the sandbox. The persistent agent home keeps `nvm`, npm global packages, and OpenClaw config across runs.
@@ -163,7 +165,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies and build AgeOS. The build creates the Ubuntu 26.04 rootfs on first install and preserves it on later local rebuilds for a faster development loop.
+Install dependencies and build AgeOS. The build installs the native `ageos-sandbox` helper under `/usr/local/bin` with the permissions required for sandbox setup, creates the Ubuntu 26.04 rootfs on first install, and preserves it on later local rebuilds for a faster development loop.
 
 ```bash
 ./scripts/install-deps.sh

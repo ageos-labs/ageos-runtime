@@ -61,7 +61,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install ".[dev]" && \
     rm -rf libageos/build && \
     meson setup libageos/build libageos --prefix=/usr/local && \
-    meson compile -C libageos/build
+    meson compile -C libageos/build && \
+    meson install -C libageos/build --no-rebuild && \
+    chown root:root /usr/local/bin/ageos-sandbox && \
+    chmod 4755 /usr/local/bin/ageos-sandbox && \
+    ldconfig
 
 CMD ["scripts/ci/run-unit-tests.sh"]
 

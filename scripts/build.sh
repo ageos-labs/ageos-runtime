@@ -75,6 +75,10 @@ NATIVE_STAGE="$(mktemp -d)"
 meson install -C "$BUILD_DIR" --no-rebuild --destdir "$NATIVE_STAGE"
 ${SUDO} mkdir -p /usr/local
 ${SUDO} cp -a --remove-destination "$NATIVE_STAGE/usr/local/." /usr/local/
+if [[ -x /usr/local/bin/ageos-sandbox ]]; then
+  ${SUDO} chown root:root /usr/local/bin/ageos-sandbox
+  ${SUDO} chmod 4755 /usr/local/bin/ageos-sandbox
+fi
 if command -v ldconfig >/dev/null 2>&1; then
   ${SUDO} ldconfig
 fi
