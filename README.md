@@ -94,7 +94,7 @@ AGEOS_SANDBOX_INFERENCE_HOST=127.0.0.1
 AGEOS_SANDBOX_INFERENCE_PORT=8000
 ```
 
-Sandboxed agents only get access to the local inference endpoint by default. Use `--allow-network` with `ageos run` or `ageos shell` when an agent setup step needs general outbound network access.
+Sandboxed agents only get access to the local inference endpoint by default. HTTP clients see a loopback deny proxy at `http://127.0.0.1:18080`, and AgeOS injects `HTTP_PROXY`, `HTTPS_PROXY`, `http_proxy`, and `https_proxy` for isolated sandboxes so web attempts fail with a logged `403` instead of silently hanging. Use `--allow-network` with `ageos run` or `ageos shell` when an agent setup step needs general outbound network access.
 
 When `--root-dir` is provided, non-system binaries must live inside that root and AgeOS mounts the root as the sandbox workspace. System binaries from `/usr`, `/bin`, `/sbin`, or `/opt/ageos` can still be used with a root directory, which lets `ageos shell --root-dir <dir>` open a shell inside the workspace sandbox. When `--root-dir` is omitted, non-system binaries are copied into a temporary workspace before the sandbox starts. Inside the sandbox, AgeOS Python prompt/shim calls detect `AGEOS_SANDBOX=1` and use the forwarded inference endpoint instead of loading the native shared library.
 
