@@ -28,9 +28,31 @@ jobs:
           tags: ageos-runtime:unit-${{ github.sha }}
           cache-from: type=gha,scope=unit-test
           cache-to: type=gha,mode=max,scope=unit-test
+          build-args: |
+            MESON_COVERAGE=true
 
-      - name: Run unit tests
-        run: docker run --rm --privileged --security-opt seccomp=unconfined ageos-runtime:unit-${{ github.sha }}
+      - name: Run unit tests with coverage
+        run: |
+          mkdir -p .ci-artifacts/coverage
+          docker run --rm \
+            --privileged \
+            --security-opt seccomp=unconfined \
+            -v "${{ github.workspace }}/.ci-artifacts/coverage:/coverage-out" \
+            ageos-runtime:unit-${{ github.sha }} \
+            scripts/ci/run-unit-tests-coverage.sh
+
+      - name: Publish coverage summary
+        if: always()
+        run: scripts/ci/write-coverage-summary.sh .ci-artifacts/coverage
+
+      - name: Upload coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          if-no-files-found: ignore
+          include-hidden-files: true
+          path: .ci-artifacts/coverage/
 
   integration-tests:
     runs-on: ubuntu-22.04

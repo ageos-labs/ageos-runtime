@@ -13,3 +13,4 @@ libageos/build/
 libageos/.cache/
 .ageos/
 examples/openclaw/openclaw/
+.ci-artifacts/

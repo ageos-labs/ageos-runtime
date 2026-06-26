@@ -6,6 +6,7 @@
   <p>Local LLM serving and sandboxed agents in one command.</p>
   <p>
     <a href="https://github.com/ageos-labs/ageos-runtime/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/ageos-labs/ageos-runtime/actions/workflows/ci.yml/badge.svg"></a>
+    <a href="https://github.com/ageos-labs/ageos-runtime/actions/workflows/ci.yml"><img alt="Coverage" src=".github/badges/coverage.svg"></a>
     <a href="https://github.com/ageos-labs/ageos-runtime/releases/latest"><img alt="GitHub release" src="https://img.shields.io/github/v/release/ageos-labs/ageos-runtime?display_name=tag"></a>
     <a href="https://discord.gg/skwKqSgvD2"><img alt="Discord" src="https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white"></a>
     <a href="LICENSE"><img alt="Apache License 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue.svg"></a>
@@ -182,6 +183,8 @@ Run the same Docker test targets that CI uses before pushing:
 docker build -f docker/Dockerfile --target unit-test -t ageos-runtime:unit .
 docker run --rm --privileged --security-opt seccomp=unconfined ageos-runtime:unit
 ```
+
+CI also enforces line coverage for C (`libageos`) and Python (`ageos`). See [CONTRIBUTING.md](CONTRIBUTING.md#coverage) for the local coverage command and HTML report locations.
 
 Integration tests also need persistent caches for the model and OpenClaw dependencies. Use Docker named volumes instead of `$PWD` bind mounts, which can fail on remote/NFS workspaces:
 

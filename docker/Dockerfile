@@ -18,6 +18,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
       cmake \
       curl \
       debootstrap \
+      gcovr \
       git \
       libseccomp-dev \
       meson \
@@ -57,10 +58,14 @@ COPY . /src
 
 FROM source AS unit-test
 
+ARG MESON_COVERAGE=false
+
 RUN --mount=type=cache,target=/root/.cache/pip \
     python3 -m pip install ".[dev]" && \
     rm -rf libageos/build && \
-    meson setup libageos/build libageos --prefix=/usr/local && \
+    coverage_args="" && \
+    if [ "$MESON_COVERAGE" = "true" ]; then coverage_args="-Db_coverage=true"; fi && \
+    meson setup libageos/build libageos --prefix=/usr/local $coverage_args && \
     meson compile -C libageos/build && \
     meson install -C libageos/build --no-rebuild && \
     chown root:root /usr/local/bin/ageos-sandbox && \

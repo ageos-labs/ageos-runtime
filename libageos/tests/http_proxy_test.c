@@ -9,6 +9,7 @@
 
 #ifdef __linux__
 #include <errno.h>
+#include <poll.h>
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -95,7 +96,23 @@ static int test_parse_request_variants(void) {
 }
 
 #ifdef __linux__
+static int wait_for_pollin(int fd, int timeout_ms) {
+    struct pollfd pfd = {
+        .fd = fd,
+        .events = POLLIN,
+    };
+    while (poll(&pfd, 1, timeout_ms) < 0) {
+        if (errno == EINTR) {
+            continue;
+        }
+        return -1;
+    }
+    return (pfd.revents & (POLLIN | POLLHUP)) != 0 ? 1 : 0;
+}
+
 static int expect_denied_response(int client_fd) {
+    TEST_CHECK(wait_for_pollin(client_fd, 5000) > 0);
+
     char buffer[512];
     ssize_t received = read(client_fd, buffer, sizeof(buffer) - 1);
     TEST_CHECK(received > 0);
@@ -194,11 +211,12 @@ static int test_broker_prompts_when_pending_write_would_fail(void) {
     TEST_CHECK(strstr(broker_request, "\"subject\":\"google.com\"") != NULL);
     TEST_CHECK(write(broker_fds[0], "deny\n", strlen("deny\n")) >= 0);
 
+    int status = 0;
+    waitpid(pid, &status, 0);
+
     int rc = expect_denied_response(client_fds[0]);
     close(client_fds[0]);
     close(broker_fds[0]);
-    int status = 0;
-    waitpid(pid, &status, 0);
     unsetenv("AGEOS_STATE_DIR");
     free(state_dir);
     TEST_CHECK(WIFEXITED(status) && WEXITSTATUS(status) == 0);

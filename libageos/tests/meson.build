@@ -25,5 +25,9 @@ foreach name : test_programs
     build_rpath: test_rpath,
     install: false,
   )
-  test(name, exe)
+  parallel = true
+  if name == 'http_proxy'
+    parallel = false
+  endif
+  test(name, exe, is_parallel: parallel)
 endforeach

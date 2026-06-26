@@ -96,6 +96,21 @@ meson test -C libageos/build --print-errorlogs
 
 C tests live under `libageos/tests/` and link against the built `libageos.so`. Mount-related overfs tests require privileges and skip automatically in unprivileged environments; CI runs them inside the privileged Docker unit-test image.
 
+### Coverage
+
+CI enforces 45% line coverage for both C (`libageos`) and Python (`ageos`) code. To reproduce the coverage run locally:
+
+```bash
+docker build -f docker/Dockerfile --target unit-test \
+  --build-arg MESON_COVERAGE=true -t ageos-runtime:unit-cov .
+mkdir -p .ci-artifacts/coverage
+docker run --rm --privileged --security-opt seccomp=unconfined \
+  -v "$PWD/.ci-artifacts/coverage:/coverage-out" \
+  ageos-runtime:unit-cov scripts/ci/run-unit-tests-coverage.sh
+```
+
+HTML reports are written under `.ci-artifacts/coverage/`.
+
 ### Integration Tests
 
 ```bash
