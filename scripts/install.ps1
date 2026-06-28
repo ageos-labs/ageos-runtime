@@ -48,7 +48,7 @@ function Install-AgeOSWindowsLaunchers {
         @'
 $ErrorActionPreference = "Stop"
 $Port = if ($env:AGEOS_APP_PORT) { $env:AGEOS_APP_PORT } else { "8010" }
-$Command = "ageos app --host 127.0.0.1 --port $Port"
+$Command = "AGEOS_WINDOWS_APP=1 ageos app --host 127.0.0.1 --port $Port"
 wsl.exe bash -lc $Command
 '@ | Set-Content -Path $LauncherScript -Encoding UTF8
     }
@@ -113,7 +113,8 @@ if ($env:OS -eq "Windows_NT") {
         $QuotedInstallApp = ConvertTo-BashSingleQuoted $env:AGEOS_INSTALL_APP
         $InstallAppEnv = "AGEOS_INSTALL_APP=$QuotedInstallApp "
     }
-    $Command = "tmp=`$(mktemp) && curl -fsSL $QuotedUrl -o `$tmp && ${InstallAppEnv}AGEOS_REPO=$QuotedRepo AGEOS_VERSION=$QuotedVersion bash `$tmp"
+    $SkipModelSetupEnv = "AGEOS_SKIP_MODEL_SETUP=1 "
+    $Command = "tmp=`$(mktemp) && curl -fsSL $QuotedUrl -o `$tmp && ${SkipModelSetupEnv}${InstallAppEnv}AGEOS_REPO=$QuotedRepo AGEOS_VERSION=$QuotedVersion bash `$tmp"
     wsl.exe bash -lc $Command
     if ($LASTEXITCODE -eq 0) {
         wsl.exe bash -lc "command -v ageos-control-center >/dev/null 2>&1"

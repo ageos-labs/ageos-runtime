@@ -4,14 +4,13 @@ import os
 import shutil
 import subprocess
 import sys
-import termios
-import tty
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Event, Thread
 from typing import TextIO
 
 from ageos.app.api import ControlApiConfig, create_control_server
+from ageos.cli.interactive import choose_option
 
 
 @dataclass(frozen=True)
@@ -102,62 +101,13 @@ def _choose_desktop_app_install(
     input_stream: TextIO = sys.stdin,
     output_stream: TextIO = sys.stderr,
 ) -> int:
-    output_stream.write(f"\n{title}\n{message}\n\nUse Up/Down arrows and press Enter.\n")
-    output_stream.flush()
-    selected = 0
-
-    def choose() -> int:
-        nonlocal selected
-        rendered = False
-        while True:
-            _render_desktop_app_options(options, selected, output_stream, rewind=rendered)
-            rendered = True
-            key = _read_prompt_key(input_stream)
-            if key in {"\n", "\r", ""}:
-                output_stream.write("\n")
-                output_stream.flush()
-                return selected
-            if key in {"\x1b[A", "k"}:
-                selected = (selected - 1) % len(options)
-            elif key in {"\x1b[B", "j"}:
-                selected = (selected + 1) % len(options)
-            elif key in {"1", "y", "Y"}:
-                return 0
-            elif key in {"2", "n", "N"}:
-                return 1
-
-    if not input_stream.isatty():
-        return choose()
-    fileno = input_stream.fileno()
-    original = termios.tcgetattr(fileno)
-    try:
-        tty.setcbreak(fileno)
-        return choose()
-    finally:
-        termios.tcsetattr(fileno, termios.TCSADRAIN, original)
-
-
-def _render_desktop_app_options(options: tuple[str, ...], selected: int, output_stream: TextIO, *, rewind: bool) -> None:
-    if rewind:
-        output_stream.write(f"\x1b[{len(options)}F")
-    for index, label in enumerate(options):
-        marker = ">" if index == selected else " "
-        line = f"{marker} {label}"
-        if index == selected:
-            line = f"\x1b[32m{line}\x1b[0m"
-        output_stream.write(f"\x1b[2K\r{line}\n")
-    output_stream.flush()
-
-
-def _read_prompt_key(input_stream: TextIO) -> str:
-    key = input_stream.read(1)
-    if key == "\x1b":
-        second = input_stream.read(1)
-        if second == "[":
-            third = input_stream.read(1)
-            return f"\x1b[{third}"
-        return key + second
-    return key
+    return choose_option(
+        title=title,
+        message=message,
+        options=options,
+        input_stream=input_stream,
+        output_stream=output_stream,
+    )
 
 
 def _install_tauri_app() -> Path:

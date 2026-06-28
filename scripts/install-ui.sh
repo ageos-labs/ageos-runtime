@@ -29,7 +29,8 @@ More install options will appear here soon:
   - GPU/runtime defaults
 
 For now, choose whether to install the Tauri desktop app or keep this
-installation CLI-only.
+installation CLI-only. After install finishes, AgeOS will ask you to choose
+your default base model unless you skip that step with AGEOS_SKIP_MODEL_SETUP=1.
 
 EOF
 }
@@ -143,4 +144,19 @@ ageos_resolve_desktop_app_choice() {
   choice="$(ageos_prompt_desktop_app_install)"
   printf '%s\n' "$choice" > "$choice_file"
   echo "$choice"
+}
+
+ageos_run_base_model_setup() {
+  if [[ "${AGEOS_SKIP_MODEL_SETUP:-0}" == "1" ]]; then
+    return 0
+  fi
+  if [[ ! -r /dev/tty || ! -w /dev/tty ]]; then
+    return 0
+  fi
+  if ! command -v ageos >/dev/null 2>&1; then
+    return 0
+  fi
+  echo
+  echo "Choose your default base model for AgeOS."
+  ageos models setup </dev/tty >/dev/tty 2>&1 || true
 }

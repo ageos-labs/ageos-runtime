@@ -176,6 +176,8 @@ else
   AGEOS_ROOTFS_DIR="$ROOTFS_DIR" SUDO="$SUDO" "$ROOT/scripts/create-rootfs.sh"
 fi
 
+ageos_run_base_model_setup
+
 echo
 echo "AgeOS system install is ready."
 echo "Run: ageos --help"

@@ -27,29 +27,17 @@ Windows PowerShell, through WSL:
 irm https://ageos.dev/install.ps1 | iex
 ```
 
-The installer downloads the latest GitHub Release artifact, installs local runtime dependencies, builds AgeOS, and creates the Ubuntu 26.04 sandbox filesystem.
-When you install from the CLI script, AgeOS asks whether to install the Tauri desktop app as well or keep the install CLI-only. You can skip
-it and install it later with `ageos app`.
-On Windows it checks for WSL2 and an installed Linux distro, installs AgeOS inside WSL, then creates Start Menu and Desktop shortcuts for
-**AgeOS Control Center** when the desktop app is selected. The shortcuts launch the Tauri desktop app through WSL/WSLg. If no distro exists,
-run `wsl --install -d Ubuntu`, complete Ubuntu setup, and rerun the installer.
-Set `AGEOS_INSTALL_WSL=1` before running the installer to let it attempt the elevated WSL install step for you.
-
 Check it:
 
 ```bash
 ageos --help
 ```
 
-Open the graphical Control Center:
+Open the app:
 
 ```bash
 ageos app
 ```
-
-`ageos app` starts the AgeOS Control Center as a Tauri desktop app backed by a host-only localhost API. It shows RAM/VRAM usage,
-loaded models with model-family logos, scheduler queue, running agents, sandbox access manifests, and base-model selection. The Agents tab can stop
-an agent process or delete its persistent sandbox. Use `ageos app --server-only` only for diagnostics/headless API checks.
 
 Docker image:
 
@@ -98,7 +86,7 @@ ageos models list
 ageos models stop
 ```
 
-Open the Task Manager-style GUI:
+Open app:
 
 ```bash
 ageos app

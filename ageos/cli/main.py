@@ -8,7 +8,12 @@ from rich.console import Console
 from rich.table import Table
 
 from ageos import __version__
-from ageos.app.models import selected_model_name, user_models_config_path, write_speciality_model_override
+from ageos.app.models import (
+    DEFAULT_SETUP_SPECIALITY,
+    prompt_base_model_setup,
+    run_install_base_model_setup,
+    selected_model_name,
+)
 from ageos.cli import app as app_cmd
 from ageos.cli import dashboard as dashboard_cmd
 from ageos.cli import manifest as manifest_cmd
@@ -109,6 +114,23 @@ def models(
     _choose_base_model(speciality)
 
 
+@models_app.command("setup")
+def models_setup(
+    speciality: str = typer.Option(
+        DEFAULT_SETUP_SPECIALITY,
+        "--speciality",
+        "--specialty",
+        help="Speciality to configure during install or first app launch.",
+    ),
+) -> None:
+    """Choose the default base model when one has not been configured yet."""
+
+    _deny_in_sandbox("ageos models setup")
+    if run_install_base_model_setup(speciality):
+        return
+    typer.echo("Base model setup skipped. Choose one later with: ageos models")
+
+
 @models_app.command("list")
 def models_list(
     speciality: str = typer.Option(
@@ -191,54 +213,10 @@ def specialties_list() -> None:
 
 
 def _choose_base_model(speciality: str) -> None:
-    registry = ModelRegistry.load_default()
-    hardware = detect_hardware()
-    tier = select_tier(hardware)
-    selected = selected_model_name(registry, speciality, tier.order, hardware)
-    candidates = registry.resolve_candidates(
-        speciality,
-        tier_order=tier.order,
-        capability="instruct",
-        max_ram_gb=hardware.ram_bytes / 1024**3,
-        max_vram_gb=hardware.vram_bytes / 1024**3,
-        supported_gpu_backends=hardware.gpu_backends,
-    )
-    if not candidates:
-        raise typer.BadParameter("no instruct models fit the current machine")
-
-    default_index = next(
-        (index for index, model in enumerate(candidates, start=1) if model.name == selected),
-        1,
-    )
-
-    console = Console()
-    console.print(f"Choose base model for [bold]{speciality}[/bold]:")
-    for index, model in enumerate(candidates, start=1):
-        marker = "current" if model.name == selected else ""
-        console.print(
-            f"{index}. {model.name} "
-            f"({model.flavor}, {model.backend}, {model.tier}, "
-            f"RAM {model.ram_gb:g}G, VRAM {model.vram_gb:g}G, ctx {model.context_tokens}) "
-            f"{marker}"
-        )
-
-    choice = _prompt_choice(len(candidates), default_index)
-    model = candidates[choice - 1]
-    write_speciality_model_override(speciality, model.name, model.capability)
-    console.print(f"Saved {speciality} -> [bold green]{model.name}[/bold green] in {user_models_config_path()}")
-
-
-def _prompt_choice(max_choice: int, default: int) -> int:
-    while True:
-        value = typer.prompt("Model number", default=str(default))
-        try:
-            choice = int(value)
-        except ValueError:
-            typer.echo("Enter a number from the list.")
-            continue
-        if 1 <= choice <= max_choice:
-            return choice
-        typer.echo(f"Enter a number between 1 and {max_choice}.")
+    try:
+        prompt_base_model_setup(speciality, output_stream=sys.stderr)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
 
 
 def _deny_in_sandbox(command: str) -> None:

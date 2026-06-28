@@ -1,4 +1,4 @@
-const state = { telemetry: null, models: null, pending: { pending: [] }, selectedAgentId: null };
+const state = { telemetry: null, models: null, pending: { pending: [] }, selectedAgentId: null, onboardingShown: false };
 
 const fmtBytes = (value) => {
   if (!value) return "0 GiB";
@@ -43,6 +43,7 @@ async function refresh() {
     document.getElementById("healthDot").classList.add("online");
     renderTelemetry();
     renderModels();
+    maybeShowOnboarding();
   } catch (error) {
     document.getElementById("health").textContent = `Offline: ${error.message}`;
     document.getElementById("healthDot").classList.remove("online");
@@ -133,6 +134,48 @@ function renderModels() {
   const data = state.models;
   document.getElementById("selectedModel").textContent = data.selected_model ? `selected ${data.selected_model}` : "selected model unknown";
   document.getElementById("modelCatalog").innerHTML = data.models.map(modelCard).join("");
+}
+
+function maybeShowOnboarding() {
+  const data = state.models;
+  const modal = document.getElementById("onboardingModal");
+  if (!data?.needs_setup || !Array.isArray(data.setup_candidates) || !data.setup_candidates.length) {
+    modal.classList.add("hidden");
+    modal.setAttribute("aria-hidden", "true");
+    state.onboardingShown = false;
+    return;
+  }
+  if (state.onboardingShown) return;
+  state.onboardingShown = true;
+  document.getElementById("onboardingCandidates").innerHTML = data.setup_candidates.map(onboardingCard).join("");
+  modal.classList.remove("hidden");
+  modal.setAttribute("aria-hidden", "false");
+  document.querySelectorAll(".tabs button, .tab-panel").forEach((item) => item.classList.remove("active"));
+  document.querySelector('[data-tab="models"]').classList.add("active");
+  document.getElementById("models").classList.add("active");
+}
+
+function onboardingCard(model) {
+  const recommended = model.selected ? " recommended" : "";
+  const label = model.selected ? "Recommended" : "Use Model";
+  return `<article class="onboarding-card${recommended}">
+    <div class="model-title">${modelLogo(model.name)}<div><div class="title">${esc(model.name)}</div><div class="sub">${esc(model.repo_id || "")}</div></div></div>
+    <div class="model-meta">
+      <span class="chip">${esc(model.backend)}</span>
+      <span class="chip">${esc(model.tier)}</span>
+      <span class="chip">RAM ${esc(model.ram_gb)}G</span>
+      <span class="chip">VRAM ${esc(model.vram_gb)}G</span>
+      <span class="chip">${esc(model.context_tokens)} ctx</span>
+    </div>
+    <button class="action primary" onclick='chooseBaseModel(${js(model.name)})'>${label}</button>
+  </article>`;
+}
+
+async function chooseBaseModel(name) {
+  await selectModel(name);
+  document.getElementById("onboardingModal").classList.add("hidden");
+  document.getElementById("onboardingModal").setAttribute("aria-hidden", "true");
+  state.onboardingShown = false;
 }
 
 function modelCard(model) {
